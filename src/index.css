@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@keyframes eq {
+  0%, 100% { height: 4px; }
+  50% { height: 16px; }
+}
+.animate-eq {
+  animation: eq 1s ease-in-out infinite;
+}
+.animate-eq-delay-1 {
+  animation: eq 1s ease-in-out 0.2s infinite;
+}
+.animate-eq-delay-2 {
+  animation: eq 1s ease-in-out 0.4s infinite;
+}

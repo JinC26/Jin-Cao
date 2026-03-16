@@ -1,0 +1,5 @@
+{
+  "name": "iOS Style FLAC Player",
+  "description": "A web-based music player designed with an iOS aesthetic, supporting .flac playback and crossfading between tracks.",
+  "requestFramePermissions": []
+}
