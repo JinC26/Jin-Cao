@@ -23,7 +23,7 @@ interface Playlist {
 type FadeCurve = 'linear' | 'equal-power' | 'quadratic';
 
 const fadeAudio = (
-  audio: HTMLAudioElement,
+  gainNode: GainNode,
   type: 'in' | 'out',
   durationMs: number,
   maxVolume: number = 1,
@@ -46,12 +46,12 @@ const fadeAudio = (
       volMultiplier = type === 'in' ? Math.sin((t * Math.PI) / 2) : Math.cos((t * Math.PI) / 2);
     }
 
-    audio.volume = Math.max(0, Math.min(1, volMultiplier * maxVolume));
+    gainNode.gain.value = Math.max(0, Math.min(1, volMultiplier * maxVolume));
 
     if (t < 1) {
       animationFrameId = requestAnimationFrame(animate);
     } else {
-      audio.volume = type === 'in' ? maxVolume : 0;
+      gainNode.gain.value = type === 'in' ? maxVolume : 0;
       if (onComplete) onComplete();
     }
   };
@@ -89,10 +89,40 @@ export default function App() {
 
   const audio1Ref = useRef<HTMLAudioElement>(null);
   const audio2Ref = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNode1Ref = useRef<GainNode | null>(null);
+  const gainNode2Ref = useRef<GainNode | null>(null);
+  const source1Ref = useRef<MediaElementAudioSourceNode | null>(null);
+  const source2Ref = useRef<MediaElementAudioSourceNode | null>(null);
   const activeAudioRef = useRef<1 | 2>(1);
   const isCrossfading = useRef(false);
   const fadeIntervals = useRef<(() => void)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const initAudioContext = () => {
+    if (!audioContextRef.current) {
+      const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+      audioContextRef.current = new AudioContextClass();
+      
+      if (audio1Ref.current && !source1Ref.current) {
+        source1Ref.current = audioContextRef.current!.createMediaElementSource(audio1Ref.current);
+        gainNode1Ref.current = audioContextRef.current!.createGain();
+        source1Ref.current.connect(gainNode1Ref.current);
+        gainNode1Ref.current.connect(audioContextRef.current!.destination);
+      }
+      
+      if (audio2Ref.current && !source2Ref.current) {
+        source2Ref.current = audioContextRef.current!.createMediaElementSource(audio2Ref.current);
+        gainNode2Ref.current = audioContextRef.current!.createGain();
+        source2Ref.current.connect(gainNode2Ref.current);
+        gainNode2Ref.current.connect(audioContextRef.current!.destination);
+      }
+    }
+    
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  };
 
   const getActiveQueue = () => {
     if (activePlaylistId) {
@@ -103,6 +133,7 @@ export default function App() {
   };
 
   const playTrack = (index: number, crossfade: boolean = true, forcePlay: boolean = false, playlistId: string | null = activePlaylistId) => {
+    initAudioContext();
     const queue = playlistId ? (playlists.find(p => p.id === playlistId)?.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]) : tracks;
     const nextTrack = queue[index];
     if (!nextTrack) return;
@@ -113,8 +144,10 @@ export default function App() {
 
     const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
     const nextAudio = activeAudioRef.current === 1 ? audio2Ref.current : audio1Ref.current;
+    const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
+    const nextGain = activeAudioRef.current === 1 ? gainNode2Ref.current : gainNode1Ref.current;
 
-    if (!currentAudio || !nextAudio) return;
+    if (!currentAudio || !nextAudio || !currentGain || !nextGain) return;
 
     fadeIntervals.current.forEach(clear => clear());
     fadeIntervals.current = [];
@@ -124,20 +157,20 @@ export default function App() {
 
     if (crossfade && shouldPlay && currentAudio.src && !currentAudio.paused) {
       const durationMs = crossfadeDuration * 1000;
-      nextAudio.volume = 0;
+      nextGain.gain.value = 0;
 
-      const clearOut = fadeAudio(currentAudio, 'out', durationMs, currentAudio.volume, fadeCurve, () => {
+      const clearOut = fadeAudio(currentGain, 'out', durationMs, currentGain.gain.value, fadeCurve, () => {
         currentAudio.pause();
         
         nextAudio.play().catch(console.error);
-        const clearIn = fadeAudio(nextAudio, 'in', durationMs, volume, fadeCurve);
+        const clearIn = fadeAudio(nextGain, 'in', durationMs, volume, fadeCurve);
         fadeIntervals.current = [clearIn];
       });
 
       fadeIntervals.current = [clearOut];
     } else {
       currentAudio.pause();
-      nextAudio.volume = volume;
+      nextGain.gain.value = volume;
       if (shouldPlay) nextAudio.play().catch(console.error);
     }
 
@@ -167,8 +200,10 @@ export default function App() {
   };
 
   const togglePlay = () => {
+    initAudioContext();
     const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
     const nextAudio = activeAudioRef.current === 1 ? audio2Ref.current : audio1Ref.current;
+    const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
 
     if (isPlaying) {
       currentAudio?.pause();
@@ -180,8 +215,8 @@ export default function App() {
          playTrack(currentIndex, false, true, activePlaylistId);
          return;
       }
-      if (currentAudio) {
-        currentAudio.volume = volume;
+      if (currentAudio && currentGain) {
+        currentGain.gain.value = volume;
         currentAudio.play().catch(console.error);
       }
     }
@@ -233,9 +268,10 @@ export default function App() {
         setTimeout(() => {
            setCurrentIndex(0);
            const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+           const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
            if (currentAudio) {
              currentAudio.src = updated[0].url;
-             currentAudio.volume = volume;
+             if (currentGain) currentGain.gain.value = volume;
            }
         }, 0);
       }
@@ -296,9 +332,9 @@ export default function App() {
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVol = Number(e.target.value);
     setVolume(newVol);
-    const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-    if (currentAudio && fadeIntervals.current.length === 0) {
-       currentAudio.volume = newVol;
+    const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
+    if (currentGain && fadeIntervals.current.length === 0) {
+       currentGain.gain.value = newVol;
     }
   };
 
