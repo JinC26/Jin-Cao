@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, Music, Repeat, FolderHeart, ArrowLeft, MoreVertical, Trash2, X, Check, Shuffle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, Music, Repeat, FolderHeart, ArrowLeft, MoreVertical, Trash2, X, Check, Shuffle, Settings } from 'lucide-react';
 
 interface Track {
   id: string;
@@ -78,7 +79,7 @@ export default function App() {
   const [overlapDuration, setOverlapDuration] = useState(1);
   const [fadeCurve, setFadeCurve] = useState<FadeCurve>('equal-power');
   const [view, setView] = useState<'player' | 'library' | 'playlist-detail'>('library');
-  const [libraryTab, setLibraryTab] = useState<'tracks' | 'playlists'>('tracks');
+  const [libraryTab, setLibraryTab] = useState<'tracks' | 'playlists' | 'settings'>('tracks');
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export default function App() {
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isSelectingForPlaylist, setIsSelectingForPlaylist] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const audio1Ref = useRef<HTMLAudioElement>(null);
   const audio2Ref = useRef<HTMLAudioElement>(null);
@@ -133,6 +135,7 @@ export default function App() {
   };
 
   const playTrack = (index: number, crossfade: boolean = true, forcePlay: boolean = false, playlistId: string | null = activePlaylistId) => {
+    setHasStarted(true);
     initAudioContext();
     const queue = playlistId ? (playlists.find(p => p.id === playlistId)?.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]) : tracks;
     const nextTrack = queue[index];
@@ -220,6 +223,7 @@ export default function App() {
       fadeIntervals.current.forEach(clear => clear());
       fadeIntervals.current = [];
     } else {
+      setHasStarted(true);
       if (currentAudio && !currentAudio.src && getActiveQueue().length > 0) {
          playTrack(currentIndex, false, true, activePlaylistId);
          return;
@@ -289,13 +293,12 @@ export default function App() {
   };
 
   const handleSelectTrack = (index: number, playlistId: string | null = null) => {
+    setHasStarted(true);
     if (index === currentIndex && playlistId === activePlaylistId) {
       if (!isPlaying) togglePlay();
-      setView('player');
       return;
     }
     playTrack(index, crossfadeEnabled, true, playlistId);
-    setView('player');
   };
 
   const handleCreatePlaylist = (e: React.FormEvent) => {
@@ -341,170 +344,71 @@ export default function App() {
   const currentTrack = getActiveQueue()[currentIndex];
 
   const renderPlayer = () => (
-    <div className="flex flex-col h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      {/* Player Section */}
-      <div className="flex flex-col flex-[2] p-6 min-h-0 overflow-y-auto">
-        {/* Top Bar */}
-        <div className="flex justify-between items-center mb-4 shrink-0">
-          <button onClick={() => { setLibraryTab('tracks'); setView('library'); setIsSelectingForPlaylist(false); }} className="p-2 -ml-2 text-white/70 hover:text-white transition-colors">
-            <ListMusic size={24} />
-          </button>
-          <span className="text-xs font-semibold tracking-widest uppercase text-white/50 px-2 text-center truncate flex-1">
-            {activePlaylistId ? playlists.find(p => p.id === activePlaylistId)?.name : 'All Tracks'}
-          </span>
-          <button onClick={() => { setLibraryTab('playlists'); setView('library'); setIsSelectingForPlaylist(false); }} className="p-2 -mr-2 text-white/70 hover:text-white transition-colors">
-            <FolderHeart size={24} />
-          </button>
-        </div>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      {/* Main Scrollable Area (Player + Settings) */}
+      <div className="flex-[1.5] flex flex-col min-h-0 overflow-y-auto">
+        <div className="p-6 flex flex-col items-center">
+          {/* Artwork */}
+          <div className="w-full max-w-[280px] aspect-square bg-gradient-to-br from-white/10 to-white/5 rounded-3xl shadow-2xl border border-white/10 flex items-center justify-center overflow-hidden relative mb-8 shrink-0 mt-8">
+            {currentTrack ? (
+              <Music size={80} className="text-white/20" />
+            ) : (
+              <div className="text-center p-6">
+                <Music size={48} className="mx-auto mb-4 text-white/20" />
+                <p className="text-white/50 text-sm">No FLAC files loaded</p>
+              </div>
+            )}
+          </div>
 
-        {/* Artwork */}
-        <div className="flex-1 flex items-center justify-center mb-6 min-h-0 shrink">
-          <div className="w-full max-w-[280px] aspect-square bg-gradient-to-br from-white/10 to-white/5 rounded-3xl shadow-2xl border border-white/10 flex items-center justify-center overflow-hidden relative">
-          {currentTrack ? (
-             <Music size={80} className="text-white/20" />
-          ) : (
-             <div className="text-center p-6">
-               <Music size={48} className="mx-auto mb-4 text-white/20" />
-               <p className="text-white/50 text-sm">No FLAC files loaded</p>
-               <button 
-                 onClick={() => { setLibraryTab('tracks'); setView('library'); setIsSelectingForPlaylist(false); }}
-                 className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm transition-colors"
-               >
-                 Go to Library
-               </button>
-             </div>
-          )}
-        </div>
-      </div>
+          {/* Track Info */}
+          <div className="mb-6 shrink-0 text-center w-full">
+            <h2 className="text-xl font-bold truncate px-4">{currentTrack ? currentTrack.name : 'Not Playing'}</h2>
+            <p className="text-base text-white/50 truncate px-4">{currentTrack ? currentTrack.artist : '--'}</p>
+          </div>
 
-        {/* Track Info */}
-        <div className="mb-6 shrink-0 text-center">
-          <h2 className="text-2xl font-bold truncate px-4">{currentTrack ? currentTrack.name : 'Not Playing'}</h2>
-          <p className="text-lg text-white/50 truncate px-4">{currentTrack ? currentTrack.artist : '--'}</p>
-        </div>
+          {/* Progress */}
+          <div className="w-full mb-8 shrink-0">
+            <input
+              type="range"
+              min={0}
+              max={duration || 100}
+              value={progress}
+              onChange={(e) => {
+                const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+                if (audio) {
+                  audio.currentTime = Number(e.target.value);
+                  setProgress(Number(e.target.value));
+                }
+              }}
+              className="w-full h-2 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-white/50 mt-2 font-mono">
+              <span>{formatTime(progress)}</span>
+              <span>-{formatTime(duration - progress)}</span>
+            </div>
+          </div>
 
-        {/* Progress */}
-        <div className="mb-8 shrink-0">
-        <input
-          type="range"
-          min={0}
-          max={duration || 100}
-          value={progress}
-          onChange={(e) => {
-            const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-            if (audio) {
-              audio.currentTime = Number(e.target.value);
-              setProgress(Number(e.target.value));
-            }
-          }}
-          className="w-full h-1.5 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-        />
-        <div className="flex justify-between text-xs text-white/50 mt-2 font-mono">
-          <span>{formatTime(progress)}</span>
-          <span>-{formatTime(duration - progress)}</span>
+          {/* Controls */}
+          <div className="w-full flex items-center justify-between px-4 shrink-0">
+            <button onClick={handlePrev} className="p-2 text-white/80 hover:text-white transition-colors">
+              <SkipBack size={32} fill="currentColor" />
+            </button>
+            <button
+              onClick={togglePlay}
+              className="w-20 h-20 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-xl"
+            >
+              {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1.5" />}
+            </button>
+            <button onClick={() => handleNext(false)} className="p-2 text-white/80 hover:text-white transition-colors">
+              <SkipForward size={32} fill="currentColor" />
+            </button>
+          </div>
         </div>
       </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-between mb-8 px-8 shrink-0">
-          <button onClick={handlePrev} className="p-2 text-white/80 hover:text-white transition-colors">
-            <SkipBack size={32} fill="currentColor" />
-          </button>
-          <button
-            onClick={togglePlay}
-            className="w-20 h-20 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-xl"
-          >
-            {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1.5" />}
-          </button>
-          <button onClick={() => handleNext(false)} className="p-2 text-white/80 hover:text-white transition-colors">
-            <SkipForward size={32} fill="currentColor" />
-          </button>
-        </div>
-      </div>
-
-      {/* Crossfade Settings (Fixed) */}
-      <div className="px-6 py-4 border-t border-white/10 flex flex-col gap-4 shrink-0 bg-black/20 backdrop-blur-md">
-         <div className="flex items-center justify-between">
-         <div className="flex items-center gap-3">
-            <Shuffle size={18} className={crossfadeEnabled ? "text-pink-500" : "text-white/30"} />
-            <span className="text-sm text-white/70">Crossfade</span>
-         </div>
-         <button
-           onClick={() => setCrossfadeEnabled(!crossfadeEnabled)}
-           className={`w-12 h-6 rounded-full transition-colors relative ${crossfadeEnabled ? 'bg-pink-500' : 'bg-white/20'}`}
-         >
-           <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${crossfadeEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
-         </button>
-       </div>
-       {crossfadeEnabled && (
-         <div className="flex flex-col gap-4 px-1 mt-2">
-           <div className="flex flex-col gap-2">
-             <div className="flex justify-between items-center">
-               <span className="text-xs text-white/50 uppercase tracking-wider">Crossfade Duration</span>
-               <span className="text-xs text-white/50 font-mono">{crossfadeDuration}s</span>
-             </div>
-             <div className="flex items-center gap-3">
-               <span className="text-[10px] text-white/30 w-4">0s</span>
-               <input
-                 type="range"
-                 min={0}
-                 max={10}
-                 step={0.5}
-                 value={crossfadeDuration}
-                 onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setCrossfadeDuration(val);
-                  if (overlapDuration > val) {
-                    setOverlapDuration(val);
-                  }
-                }}
-                 className="flex-1 h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-               />
-               <span className="text-[10px] text-white/30 w-4 text-right">10s</span>
-             </div>
-           </div>
-
-           <div className="flex flex-col gap-2">
-             <div className="flex justify-between items-center">
-               <span className="text-xs text-white/50 uppercase tracking-wider">Overlap Duration</span>
-               <span className="text-xs text-white/50 font-mono">{overlapDuration}s</span>
-             </div>
-             <div className="flex items-center gap-3">
-               <span className="text-[10px] text-white/30 w-4">0s</span>
-               <input
-                 type="range"
-                 min={0}
-                 max={crossfadeDuration}
-                 step={0.5}
-                 value={overlapDuration}
-                 onChange={(e) => setOverlapDuration(Number(e.target.value))}
-                 className="flex-1 h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-               />
-               <span className="text-[10px] text-white/30 w-4 text-right">10s</span>
-             </div>
-           </div>
-
-           <div className="flex justify-between items-center mt-1">
-             <span className="text-xs text-white/50">Curve</span>
-             <div className="flex bg-white/10 rounded-lg p-0.5">
-               {(['linear', 'equal-power', 'quadratic'] as FadeCurve[]).map(c => (
-                 <button
-                   key={c}
-                   onClick={() => setFadeCurve(c)}
-                   className={`text-[10px] px-2 py-1 rounded-md uppercase tracking-wider transition-colors ${fadeCurve === c ? 'bg-white/20 text-white font-semibold' : 'text-white/50 hover:text-white/80'}`}
-                 >
-                   {c.replace('-', ' ')}
-                 </button>
-               ))}
-             </div>
-           </div>
-         </div>
-       )}
-      </div>
-
-      {/* Queue Section (1/3) */}
-      <div className="flex-[1] flex flex-col bg-black/40 border-t border-white/10 min-h-0">
-        <div className="px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-wider sticky top-0 bg-black/40 backdrop-blur-md z-10 flex justify-between items-center">
+      {/* Queue Section (Fixed at bottom) */}
+      <div className="flex-1 flex flex-col bg-black/40 border-t border-white/10 min-h-0 pb-[env(safe-area-inset-bottom)]">
+        <div className="px-4 py-3 text-[10px] font-semibold text-white/50 uppercase tracking-wider sticky top-0 bg-black/60 backdrop-blur-md z-10 flex justify-between items-center">
           <span>{activePlaylistId ? playlists.find(p => p.id === activePlaylistId)?.name : 'Up Next'}</span>
           <span>{getActiveQueue().length} tracks</span>
         </div>
@@ -527,10 +431,10 @@ export default function App() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`truncate text-sm font-medium ${index === currentIndex ? 'text-pink-500' : 'text-white'}`}>
+                <p className={`truncate text-xs font-medium ${index === currentIndex ? 'text-pink-500' : 'text-white'}`}>
                   {track.name}
                 </p>
-                <p className="truncate text-xs text-white/50">{track.artist}</p>
+                <p className="truncate text-[10px] text-white/50">{track.artist}</p>
               </div>
             </button>
           ))}
@@ -540,51 +444,22 @@ export default function App() {
   );
 
   const renderLibrary = () => (
-    <div className="flex flex-col h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      {/* Header */}
-      <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-center sticky top-0 bg-black/20 backdrop-blur-md z-10">
-        <h1 className="text-2xl font-bold">{isSelectingForPlaylist ? 'Add Tracks' : 'Library'}</h1>
-        <div className="flex items-center gap-4">
-          {!isSelectingForPlaylist && libraryTab === 'playlists' && (
-            <button onClick={() => setIsCreatingPlaylist(true)} className="text-pink-500 hover:text-pink-400 transition-colors">
-              <Plus size={24} />
-            </button>
-          )}
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Header (Selection mode only) */}
+      {isSelectingForPlaylist && (
+        <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-center bg-black/20 backdrop-blur-md z-10">
+          <h1 className="text-lg font-bold tracking-tight">Add Tracks</h1>
           <button onClick={() => {
-            if (isSelectingForPlaylist) {
-              setIsSelectingForPlaylist(false);
-              setView('playlist-detail');
-            } else {
-              setView('player');
-            }
-          }} className="text-pink-500 font-medium hover:text-pink-400 transition-colors">
+            setIsSelectingForPlaylist(false);
+            setView('playlist-detail');
+          }} className="text-pink-500 font-bold text-xs uppercase tracking-widest hover:text-pink-400 transition-colors">
             Done
           </button>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      {!isSelectingForPlaylist && (
-        <div className="px-4 pt-4 shrink-0">
-          <div className="flex p-1 bg-white/10 rounded-xl">
-            <button 
-              onClick={() => setLibraryTab('tracks')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${libraryTab === 'tracks' ? 'bg-white/20 text-white shadow-sm' : 'text-white/50 hover:text-white/80'}`}
-            >
-              Tracks
-            </button>
-            <button 
-              onClick={() => setLibraryTab('playlists')}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${libraryTab === 'playlists' ? 'bg-white/20 text-white shadow-sm' : 'text-white/50 hover:text-white/80'}`}
-            >
-              Playlists
-            </button>
-          </div>
         </div>
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 relative">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 relative min-h-0 pb-[env(safe-area-inset-bottom)]">
         {libraryTab === 'tracks' ? (
           tracks.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
@@ -625,10 +500,10 @@ export default function App() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0 text-left">
-                      <p className={`truncate font-medium ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-pink-500' : 'text-white'}`}>
+                      <p className={`truncate text-sm font-medium ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-pink-500' : 'text-white'}`}>
                         {track.name}
                       </p>
-                      <p className="truncate text-sm text-white/50">{track.artist}</p>
+                      <p className="truncate text-xs text-white/50">{track.artist}</p>
                     </div>
                   </button>
                   {!isSelectingForPlaylist && (
@@ -643,18 +518,18 @@ export default function App() {
                 
                 {showAddToPlaylist === track.id && (
                   <div className="absolute right-12 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden">
-                    <div className="px-3 py-2 text-xs font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
+                    <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
                       Add to Playlist
                     </div>
                     <div className="max-h-48 overflow-y-auto">
                       {playlists.length === 0 ? (
-                        <div className="px-3 py-4 text-sm text-white/50 text-center">No playlists</div>
+                        <div className="px-3 py-4 text-xs text-white/50 text-center">No playlists</div>
                       ) : (
                         playlists.map(p => (
                           <button 
                             key={p.id}
                             onClick={() => addToPlaylist(p.id, track.id)}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-white/10 transition-colors truncate"
+                            className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors truncate"
                           >
                             {p.name}
                           </button>
@@ -663,7 +538,7 @@ export default function App() {
                     </div>
                     <button 
                       onClick={() => { setIsCreatingPlaylist(true); setShowAddToPlaylist(null); }}
-                      className="w-full text-left px-3 py-2 text-sm text-pink-500 hover:bg-white/10 transition-colors border-t border-white/10"
+                      className="w-full text-left px-3 py-2 text-xs text-pink-500 hover:bg-white/10 transition-colors border-t border-white/10"
                     >
                       + New Playlist
                     </button>
@@ -672,14 +547,11 @@ export default function App() {
               </div>
             )})
           )
-        ) : (
+        ) : libraryTab === 'playlists' ? (
           playlists.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
               <FolderHeart size={48} className="opacity-50" />
-              <p>No playlists yet</p>
-              <button onClick={() => setIsCreatingPlaylist(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm transition-colors">
-                Create Playlist
-              </button>
+              <p className="text-xs font-medium">No playlists yet</p>
             </div>
           ) : (
             playlists.map(playlist => (
@@ -692,8 +564,8 @@ export default function App() {
                     <FolderHeart size={24} className="text-white/50" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate font-medium text-white">{playlist.name}</p>
-                    <p className="truncate text-sm text-white/50">{playlist.trackIds.length} tracks</p>
+                    <p className="truncate text-sm font-medium text-white">{playlist.name}</p>
+                    <p className="truncate text-xs text-white/50">{playlist.trackIds.length} tracks</p>
                   </div>
                 </button>
                 <button
@@ -706,29 +578,91 @@ export default function App() {
               </div>
             ))
           )
+        ) : (
+          <div className="flex flex-col gap-8 p-4 bg-white/5 rounded-2xl border border-white/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Shuffle size={20} className={crossfadeEnabled ? "text-pink-500" : "text-white/30"} />
+                <span className="text-xs font-medium text-white">Enable Crossfade</span>
+              </div>
+              <button
+                onClick={() => setCrossfadeEnabled(!crossfadeEnabled)}
+                className={`w-14 h-7 rounded-full transition-colors relative ${crossfadeEnabled ? 'bg-pink-500' : 'bg-white/20'}`}
+              >
+                <div className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${crossfadeEnabled ? 'translate-x-7' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+            
+            {crossfadeEnabled && (
+              <div className="flex flex-col gap-8">
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">Crossfade Duration</span>
+                    <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{crossfadeDuration}s</span>
+                  </div>
+                  <div className="flex items-center gap-4 py-2">
+                    <span className="text-[10px] text-white/30 w-6">0s</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={crossfadeDuration}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setCrossfadeDuration(val);
+                        if (overlapDuration > val) {
+                          setOverlapDuration(val);
+                        }
+                      }}
+                      className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">Overlap Duration</span>
+                    <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{overlapDuration}s</span>
+                  </div>
+                  <div className="flex items-center gap-4 py-2">
+                    <span className="text-[10px] text-white/30 w-6">0s</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10}
+                      step={0.5}
+                      value={overlapDuration}
+                      onChange={(e) => setOverlapDuration(Math.min(Number(e.target.value), crossfadeDuration))}
+                      className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                    />
+                    <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">Fade Curve</span>
+                  <div className="grid grid-cols-3 gap-2 bg-white/5 p-1 rounded-xl">
+                    {(['linear', 'equal-power', 'quadratic'] as FadeCurve[]).map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setFadeCurve(c)}
+                        className={`text-[10px] py-3 rounded-lg uppercase tracking-wider transition-all ${fadeCurve === c ? 'bg-white text-black font-bold shadow-lg' : 'text-white/50 hover:text-white/80 hover:bg-white/5'}`}
+                      >
+                        {c.replace('-', ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       {/* Add Button */}
-      {!isSelectingForPlaylist && libraryTab === 'tracks' && (
-        <div className="p-6 border-t border-white/10 bg-black/20 backdrop-blur-md shrink-0">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".flac,audio/flac"
-            multiple
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
-          >
-            <Plus size={20} />
-            Add FLAC Files
-          </button>
-        </div>
-      )}
+      {/* Removed "Add FLAC Files" button as it's now handled by the FAB */}
     </div>
   );
 
@@ -738,31 +672,19 @@ export default function App() {
     const playlistTracks = playlist.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[];
 
     return (
-      <div className="flex flex-col h-full pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-        <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-center sticky top-0 bg-black/20 backdrop-blur-md z-10">
-          <div className="flex items-center gap-3">
-            <button onClick={() => { setLibraryTab('playlists'); setView('library'); }} className="text-white/70 hover:text-white transition-colors">
-              <ArrowLeft size={24} />
-            </button>
-            <h1 className="text-2xl font-bold truncate">{playlist.name}</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <button onClick={() => { setLibraryTab('tracks'); setView('library'); setIsSelectingForPlaylist(true); }} className="text-pink-500 hover:text-pink-400 transition-colors">
-              <Plus size={24} />
-            </button>
-            <button onClick={() => setView('player')} className="text-pink-500 font-medium hover:text-pink-400 transition-colors">
-              Done
-            </button>
-          </div>
+      <div className="flex flex-col flex-1 min-h-0">
+        <div className="px-6 py-6 flex flex-col gap-2">
+          <button onClick={() => { setLibraryTab('playlists'); setView('library'); }} className="flex items-center gap-1 text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
+            <ArrowLeft size={12} />
+            Back to Playlists
+          </button>
+          <h1 className="text-2xl font-bold tracking-tight truncate">{playlist.name}</h1>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {playlistTracks.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
               <Music size={48} className="opacity-50" />
-              <p>Playlist is empty</p>
-              <button onClick={() => { setLibraryTab('tracks'); setView('library'); setIsSelectingForPlaylist(true); }} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm transition-colors">
-                Add from Library
-              </button>
+              <p className="text-xs">Playlist is empty</p>
             </div>
           ) : (
             playlistTracks.map((track, index) => (
@@ -783,10 +705,10 @@ export default function App() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`truncate font-medium ${index === currentIndex && activePlaylistId === playlist.id ? 'text-pink-500' : 'text-white'}`}>
+                    <p className={`truncate text-sm font-medium ${index === currentIndex && activePlaylistId === playlist.id ? 'text-pink-500' : 'text-white'}`}>
                       {track.name}
                     </p>
-                    <p className="truncate text-sm text-white/50">{track.artist}</p>
+                    <p className="truncate text-xs text-white/50">{track.artist}</p>
                   </div>
                 </button>
                 <button
@@ -804,11 +726,60 @@ export default function App() {
     );
   };
 
+  const renderMiniPlayer = () => {
+    const track = getActiveQueue()[currentIndex];
+    if (!track) return null;
+
+    return (
+      <div 
+        onClick={() => setView('player')}
+        className="h-20 bg-zinc-900/90 backdrop-blur-xl border-t border-white/10 flex items-center px-4 gap-4 cursor-pointer shrink-0 z-50 pb-[env(safe-area-inset-bottom)] relative"
+      >
+        <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+          <Music size={24} className="text-pink-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold truncate text-white">{track.name}</p>
+          <p className="text-[10px] text-white/50 truncate">{track.artist}</p>
+        </div>
+        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+          <button 
+            onClick={togglePlay}
+            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-full transition-colors"
+          >
+            {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+          </button>
+          <button 
+            onClick={() => handleNext()}
+            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-full transition-colors"
+          >
+            <SkipForward size={24} fill="currentColor" />
+          </button>
+        </div>
+        {/* Progress bar at the very top of the mini player */}
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10">
+          <div 
+            className="h-full bg-pink-500 transition-all duration-300" 
+            style={{ width: `${(progress / duration) * 100}%` }}
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
       <audio ref={audio1Ref} onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} />
       <audio ref={audio2Ref} onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} />
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept=".flac,audio/flac"
+        multiple
+        className="hidden"
+      />
 
       {/* Background */}
       <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
@@ -817,27 +788,96 @@ export default function App() {
 
       {/* Main Container */}
       <div className="relative z-10 flex flex-col h-[100dvh] w-full bg-black/40 backdrop-blur-2xl shadow-2xl overflow-hidden">
-         {view === 'player' && renderPlayer()}
-         {view === 'library' && renderLibrary()}
-         {view === 'playlist-detail' && renderPlaylistDetail()}
+         {/* Global Navigation */}
+         {!isSelectingForPlaylist && (
+           <nav className="shrink-0 z-30 pt-[env(safe-area-inset-top)] bg-black/60 backdrop-blur-2xl border-b border-white/5">
+             <div className="relative flex items-center justify-center px-6 h-16">
+               <div className="flex gap-8 h-full">
+                 {[
+                   { id: 'tracks', label: 'Tracks' },
+                   { id: 'playlists', label: 'Playlist' },
+                   { id: 'settings', label: 'Settings' }
+                 ].map(tab => {
+                   const isActive = (view === 'library' && libraryTab === tab.id) || (tab.id === 'playlists' && view === 'playlist-detail');
+                   return (
+                     <button
+                       key={tab.id}
+                       onClick={() => { setLibraryTab(tab.id as any); setView('library'); setIsSelectingForPlaylist(false); }}
+                       className="relative h-full flex items-center group"
+                     >
+                       <span className={`text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 ${isActive ? 'text-pink-500' : 'text-white/40 group-hover:text-white/60'}`}>
+                         {tab.label}
+                       </span>
+                       {isActive && (
+                         <motion.div 
+                           layoutId="nav-indicator"
+                           className="absolute bottom-0 left-0 right-0 h-0.5 bg-pink-500 rounded-full"
+                           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                         />
+                       )}
+                     </button>
+                   );
+                 })}
+               </div>
+               <div className="absolute right-6 flex items-center gap-4">
+               </div>
+             </div>
+           </nav>
+         )}
+
+         <div className="flex-1 flex flex-col min-h-0">
+           {view === 'player' && renderPlayer()}
+           {view === 'library' && renderLibrary()}
+           {view === 'playlist-detail' && renderPlaylistDetail()}
+         </div>
+         {/* Floating Action Button (Plus) */}
+         <AnimatePresence>
+           {((view === 'library' && (libraryTab === 'tracks' || libraryTab === 'playlists')) || view === 'playlist-detail') && !isSelectingForPlaylist && (
+             <motion.div
+               initial={{ scale: 0, opacity: 0, y: 20 }}
+               animate={{ scale: 1, opacity: 1, y: 0 }}
+               exit={{ scale: 0, opacity: 0, y: 20 }}
+               className={`fixed left-1/2 -translate-x-1/2 z-40 ${hasStarted && view !== 'player' ? 'bottom-24' : 'bottom-8'}`}
+             >
+               <button 
+                 onClick={() => {
+                   if (view === 'playlist-detail') {
+                     setLibraryTab('tracks');
+                     setView('library');
+                     setIsSelectingForPlaylist(true);
+                   } else if (view === 'library' && libraryTab === 'tracks') {
+                     fileInputRef.current?.click();
+                   } else {
+                     setIsCreatingPlaylist(true);
+                   }
+                 }}
+                 className="w-14 h-14 rounded-full bg-pink-500 flex items-center justify-center text-white shadow-2xl shadow-pink-500/40 hover:scale-110 active:scale-95 transition-transform"
+               >
+                 <Plus size={28} />
+               </button>
+             </motion.div>
+           )}
+         </AnimatePresence>
+
+         {view !== 'player' && hasStarted && renderMiniPlayer()}
       </div>
 
       {/* Create Playlist Modal */}
       {isCreatingPlaylist && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <form onSubmit={handleCreatePlaylist} className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl">
-            <h3 className="text-lg font-bold mb-4">New Playlist</h3>
+            <h3 className="text-base font-bold mb-4">New Playlist</h3>
             <input
               type="text"
               autoFocus
               value={newPlaylistName}
               onChange={e => setNewPlaylistName(e.target.value)}
               placeholder="Playlist name"
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-pink-500 transition-colors mb-6"
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-pink-500 transition-colors mb-6"
             />
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setIsCreatingPlaylist(false)} className="px-4 py-2 text-white/50 hover:text-white transition-colors">Cancel</button>
-              <button type="submit" disabled={!newPlaylistName.trim()} className="px-4 py-2 bg-pink-500 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed">Create</button>
+              <button type="button" onClick={() => setIsCreatingPlaylist(false)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
+              <button type="submit" disabled={!newPlaylistName.trim()} className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">Create</button>
             </div>
           </form>
         </div>
