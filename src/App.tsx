@@ -344,7 +344,7 @@ export default function App() {
   const currentTrack = getActiveQueue()[currentIndex];
 
   const renderPlayer = () => (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden pt-4">
       {/* Main Scrollable Area (Player + Settings) */}
       <div className="flex-[1.5] flex flex-col min-h-0 overflow-y-auto">
         <div className="p-6 flex flex-col items-center">
@@ -412,7 +412,7 @@ export default function App() {
           <span>{activePlaylistId ? playlists.find(p => p.id === activePlaylistId)?.name : 'Up Next'}</span>
           <span>{getActiveQueue().length} tracks</span>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto p-2 space-y-1 pb-32">
           {getActiveQueue().map((track, index) => (
             <button
               key={`${track.id}-${index}`}
@@ -444,7 +444,7 @@ export default function App() {
   );
 
   const renderLibrary = () => (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 pt-4">
       {/* Header (Selection mode only) */}
       {isSelectingForPlaylist && (
         <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-center bg-black/20 backdrop-blur-md z-10">
@@ -459,12 +459,12 @@ export default function App() {
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 relative min-h-0 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 relative min-h-0 pb-32">
         {libraryTab === 'tracks' ? (
           tracks.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
               <Music size={48} className="opacity-50" />
-              <p>No tracks in library</p>
+              <p className="text-xs font-medium uppercase tracking-widest">No tracks in library</p>
             </div>
           ) : (
             tracks.map((track, index) => {
@@ -551,7 +551,7 @@ export default function App() {
           playlists.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
               <FolderHeart size={48} className="opacity-50" />
-              <p className="text-xs font-medium">No playlists yet</p>
+              <p className="text-xs font-medium uppercase tracking-widest">No playlists yet</p>
             </div>
           ) : (
             playlists.map(playlist => (
@@ -579,7 +579,7 @@ export default function App() {
             ))
           )
         ) : (
-          <div className="flex flex-col gap-8 p-4 bg-white/5 rounded-2xl border border-white/10">
+          <div className="flex flex-col gap-8 p-4 bg-white/5 rounded-2xl border border-white/10 pb-32">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Shuffle size={20} className={crossfadeEnabled ? "text-pink-500" : "text-white/30"} />
@@ -672,7 +672,7 @@ export default function App() {
     const playlistTracks = playlist.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[];
 
     return (
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0 pt-4">
         <div className="px-6 py-6 flex flex-col gap-2">
           <button onClick={() => { setLibraryTab('playlists'); setView('library'); }} className="flex items-center gap-1 text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
             <ArrowLeft size={12} />
@@ -680,11 +680,11 @@ export default function App() {
           </button>
           <h1 className="text-2xl font-bold tracking-tight truncate">{playlist.name}</h1>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-32">
           {playlistTracks.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
               <Music size={48} className="opacity-50" />
-              <p className="text-xs">Playlist is empty</p>
+              <p className="text-xs font-medium uppercase tracking-widest">Playlist is empty</p>
             </div>
           ) : (
             playlistTracks.map((track, index) => (
@@ -787,7 +787,7 @@ export default function App() {
       </div>
 
       {/* Main Container */}
-      <div className="relative z-10 flex flex-col h-[100dvh] w-full bg-black/40 backdrop-blur-2xl shadow-2xl overflow-hidden">
+      <div className="relative z-10 flex flex-col h-[100dvh] w-full bg-black/40 backdrop-blur-2xl shadow-2xl overflow-hidden pt-8">
           <div className="flex-1 flex flex-col min-h-0">
             {view === 'player' && renderPlayer()}
             {view === 'library' && renderLibrary()}
@@ -798,7 +798,7 @@ export default function App() {
 
           {/* Global Navigation (Bottom) */}
           {!isSelectingForPlaylist && (
-            <nav className="shrink-0 z-30 pb-[env(safe-area-inset-bottom)] bg-black/60 backdrop-blur-2xl border-t border-white/5">
+            <nav className="shrink-0 z-30 pb-[calc(env(safe-area-inset-bottom)+2rem)] bg-black/60 backdrop-blur-2xl border-t border-white/5">
               <div className="relative flex items-center justify-center px-6 h-16">
                 <div className="flex gap-8 h-full">
                   {[
@@ -840,7 +840,7 @@ export default function App() {
                 initial={{ scale: 0, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0, opacity: 0, y: 20 }}
-                className={`fixed left-1/2 -translate-x-1/2 z-40 ${hasStarted && view !== 'player' ? 'bottom-44' : 'bottom-24'}`}
+                className={`fixed left-1/2 -translate-x-1/2 z-40 ${hasStarted && view !== 'player' ? 'bottom-52' : 'bottom-32'}`}
               >
                 <button 
                   onClick={() => {
