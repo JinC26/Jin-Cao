@@ -407,7 +407,7 @@ export default function App() {
       </div>
 
       {/* Queue Section (Fixed at bottom) */}
-      <div className="flex-1 flex flex-col bg-black/40 border-t border-white/10 min-h-0 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex-1 flex flex-col bg-black/40 border-t border-white/10 min-h-0">
         <div className="px-4 py-3 text-[10px] font-semibold text-white/50 uppercase tracking-wider sticky top-0 bg-black/60 backdrop-blur-md z-10 flex justify-between items-center">
           <span>{activePlaylistId ? playlists.find(p => p.id === activePlaylistId)?.name : 'Up Next'}</span>
           <span>{getActiveQueue().length} tracks</span>
@@ -733,7 +733,7 @@ export default function App() {
     return (
       <div 
         onClick={() => setView('player')}
-        className="h-20 bg-zinc-900/90 backdrop-blur-xl border-t border-white/10 flex items-center px-4 gap-4 cursor-pointer shrink-0 z-50 pb-[env(safe-area-inset-bottom)] relative"
+        className="h-20 bg-zinc-900/90 backdrop-blur-xl border-t border-white/10 flex items-center px-4 gap-4 cursor-pointer shrink-0 z-50 relative"
       >
         <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
           <Music size={24} className="text-pink-500" />
@@ -788,78 +788,79 @@ export default function App() {
 
       {/* Main Container */}
       <div className="relative z-10 flex flex-col h-[100dvh] w-full bg-black/40 backdrop-blur-2xl shadow-2xl overflow-hidden">
-         {/* Global Navigation */}
-         {!isSelectingForPlaylist && (
-           <nav className="shrink-0 z-30 pt-[env(safe-area-inset-top)] bg-black/60 backdrop-blur-2xl border-b border-white/5">
-             <div className="relative flex items-center justify-center px-6 h-16">
-               <div className="flex gap-8 h-full">
-                 {[
-                   { id: 'tracks', label: 'Tracks' },
-                   { id: 'playlists', label: 'Playlist' },
-                   { id: 'settings', label: 'Settings' }
-                 ].map(tab => {
-                   const isActive = (view === 'library' && libraryTab === tab.id) || (tab.id === 'playlists' && view === 'playlist-detail');
-                   return (
-                     <button
-                       key={tab.id}
-                       onClick={() => { setLibraryTab(tab.id as any); setView('library'); setIsSelectingForPlaylist(false); }}
-                       className="relative h-full flex items-center group"
-                     >
-                       <span className={`text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 ${isActive ? 'text-pink-500' : 'text-white/40 group-hover:text-white/60'}`}>
-                         {tab.label}
-                       </span>
-                       {isActive && (
-                         <motion.div 
-                           layoutId="nav-indicator"
-                           className="absolute bottom-0 left-0 right-0 h-0.5 bg-pink-500 rounded-full"
-                           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                         />
-                       )}
-                     </button>
-                   );
-                 })}
-               </div>
-               <div className="absolute right-6 flex items-center gap-4">
-               </div>
-             </div>
-           </nav>
-         )}
+          <div className="flex-1 flex flex-col min-h-0">
+            {view === 'player' && renderPlayer()}
+            {view === 'library' && renderLibrary()}
+            {view === 'playlist-detail' && renderPlaylistDetail()}
+          </div>
 
-         <div className="flex-1 flex flex-col min-h-0">
-           {view === 'player' && renderPlayer()}
-           {view === 'library' && renderLibrary()}
-           {view === 'playlist-detail' && renderPlaylistDetail()}
-         </div>
-         {/* Floating Action Button (Plus) */}
-         <AnimatePresence>
-           {((view === 'library' && (libraryTab === 'tracks' || libraryTab === 'playlists')) || view === 'playlist-detail') && !isSelectingForPlaylist && (
-             <motion.div
-               initial={{ scale: 0, opacity: 0, y: 20 }}
-               animate={{ scale: 1, opacity: 1, y: 0 }}
-               exit={{ scale: 0, opacity: 0, y: 20 }}
-               className={`fixed left-1/2 -translate-x-1/2 z-40 ${hasStarted && view !== 'player' ? 'bottom-24' : 'bottom-8'}`}
-             >
-               <button 
-                 onClick={() => {
-                   if (view === 'playlist-detail') {
-                     setLibraryTab('tracks');
-                     setView('library');
-                     setIsSelectingForPlaylist(true);
-                   } else if (view === 'library' && libraryTab === 'tracks') {
-                     fileInputRef.current?.click();
-                   } else {
-                     setIsCreatingPlaylist(true);
-                   }
-                 }}
-                 className="w-14 h-14 rounded-full bg-pink-500 flex items-center justify-center text-white shadow-2xl shadow-pink-500/40 hover:scale-110 active:scale-95 transition-transform"
-               >
-                 <Plus size={28} />
-               </button>
-             </motion.div>
-           )}
-         </AnimatePresence>
+          {view !== 'player' && hasStarted && renderMiniPlayer()}
 
-         {view !== 'player' && hasStarted && renderMiniPlayer()}
+          {/* Global Navigation (Bottom) */}
+          {!isSelectingForPlaylist && (
+            <nav className="shrink-0 z-30 pb-[env(safe-area-inset-bottom)] bg-black/60 backdrop-blur-2xl border-t border-white/5">
+              <div className="relative flex items-center justify-center px-6 h-16">
+                <div className="flex gap-8 h-full">
+                  {[
+                    { id: 'tracks', label: 'Tracks' },
+                    { id: 'playlists', label: 'Playlist' },
+                    { id: 'settings', label: 'Settings' }
+                  ].map(tab => {
+                    const isActive = libraryTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => { setLibraryTab(tab.id as any); setView('library'); setIsSelectingForPlaylist(false); }}
+                        className="relative h-full flex items-center group"
+                      >
+                        <span className={`text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 ${isActive ? 'text-pink-500' : 'text-white/40 group-hover:text-white/60'}`}>
+                          {tab.label}
+                        </span>
+                        {isActive && (
+                          <motion.div 
+                            layoutId="nav-indicator"
+                            className="absolute top-0 left-0 right-0 h-0.5 bg-pink-500 rounded-full"
+                            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="absolute right-6 flex items-center gap-4">
+                </div>
+              </div>
+            </nav>
+          )}
+
+          {/* Floating Action Button (Plus) */}
+          <AnimatePresence>
+            {((view === 'library' && (libraryTab === 'tracks' || libraryTab === 'playlists')) || view === 'playlist-detail') && !isSelectingForPlaylist && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0, opacity: 0, y: 20 }}
+                className={`fixed left-1/2 -translate-x-1/2 z-40 ${hasStarted && view !== 'player' ? 'bottom-44' : 'bottom-24'}`}
+              >
+                <button 
+                  onClick={() => {
+                    if (view === 'playlist-detail') {
+                      setLibraryTab('tracks');
+                      setView('library');
+                      setIsSelectingForPlaylist(true);
+                    } else if (view === 'library' && libraryTab === 'tracks') {
+                      fileInputRef.current?.click();
+                    } else {
+                      setIsCreatingPlaylist(true);
+                    }
+                  }}
+                  className="w-14 h-14 rounded-full bg-pink-500 flex items-center justify-center text-white shadow-2xl shadow-pink-500/40 hover:scale-110 active:scale-95 transition-transform"
+                >
+                  <Plus size={28} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
       </div>
 
       {/* Create Playlist Modal */}
