@@ -564,9 +564,9 @@ export default function App() {
           </div>
 
           {/* Progress */}
-          <div className="w-full mb-8 shrink-0 relative">
+          <div className="w-full mb-8 shrink-0 relative px-4">
             {currentTrack && (currentTrack.startTime || currentTrack.endTime) && (
-              <div className="absolute top-[11px] left-0 right-0 h-2 bg-pink-500/10 rounded-full overflow-hidden pointer-events-none">
+              <div className="absolute top-[11px] left-4 right-4 h-2 bg-pink-500/10 rounded-full overflow-hidden pointer-events-none">
                 <div 
                   className="absolute h-full bg-pink-500/30"
                   style={{
@@ -602,9 +602,9 @@ export default function App() {
                   audio.currentTime = val;
                 }
               }}
-              className="w-full h-3 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-pink-500 cursor-pointer relative z-10"
+              className="w-full h-3 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-10 [&::-webkit-slider-thumb]:h-10 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-2xl [&::-webkit-slider-thumb]:border-[6px] [&::-webkit-slider-thumb]:border-pink-500 cursor-pointer relative z-10"
             />
-            <div className="flex justify-between text-[10px] text-white/50 mt-2 font-mono">
+            <div className="flex justify-between text-[10px] text-white/50 mt-3 font-mono px-1">
               <span>{formatTime(progress)}</span>
               <span>-{formatTime(duration - progress)}</span>
             </div>
@@ -1099,13 +1099,13 @@ export default function App() {
         </div>
         {/* Progress bar at the very top of the mini player */}
         <div 
-          className="absolute -top-3 left-0 right-0 h-6 bg-transparent group/progress z-20" 
+          className="absolute -top-4 left-0 right-0 h-8 bg-transparent group/progress z-20 px-4" 
           onClick={e => e.stopPropagation()}
         >
-          <div className="absolute top-3 left-0 right-0 h-1 bg-white/10">
+          <div className="absolute top-4 left-4 right-4 h-1.5 bg-white/10 rounded-full">
             {track && (track.startTime || track.endTime) && (
               <div 
-                className="absolute h-full bg-pink-500/30"
+                className="absolute h-full bg-pink-500/30 rounded-full"
                 style={{
                   left: `${((track.startTime || 0) / (duration || 1)) * 100}%`,
                   width: `${(((track.endTime || duration) - (track.startTime || 0)) / (duration || 1)) * 100}%`
@@ -1113,10 +1113,10 @@ export default function App() {
               />
             )}
             <div 
-              className={`h-full bg-pink-500 relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
+              className={`h-full bg-pink-500 rounded-full relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
               style={{ width: `${(progress / (duration || 1)) * 100}%` }}
             >
-              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-0 group-hover/progress:opacity-100'}`} />
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-[0_0_15px_rgba(236,72,153,0.5)] border-2 border-pink-500 transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-100 md:opacity-0 md:group-hover/progress:opacity-100'}`} />
             </div>
           </div>
           <input
