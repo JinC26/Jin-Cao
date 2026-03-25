@@ -1199,7 +1199,7 @@ export default function App() {
               value={newPlaylistName}
               onChange={e => setNewPlaylistName(e.target.value)}
               placeholder="Playlist name"
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-pink-500 transition-colors mb-6"
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-base text-white outline-none focus:border-pink-500 transition-colors mb-6"
             />
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setIsCreatingPlaylist(false)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
@@ -1248,7 +1248,7 @@ export default function App() {
                 onChange={e => setNewTag(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addTag(taggingTrackId, newTag)}
                 placeholder="Add new tag..."
-                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-pink-500 transition-colors"
+                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-base text-white outline-none focus:border-pink-500 transition-colors"
               />
               <button 
                 onClick={() => addTag(taggingTrackId, newTag)}
@@ -1284,7 +1284,7 @@ export default function App() {
               value={editingTrackName}
               onChange={e => setEditingTrackName(e.target.value)}
               placeholder="Song name"
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-pink-500 transition-colors mb-6"
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-base text-white outline-none focus:border-pink-500 transition-colors mb-6"
             />
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setEditingTrackId(null)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
@@ -1347,7 +1347,7 @@ export default function App() {
                       setTrimStart(val);
                     }
                   }}
-                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-xs text-white outline-none transition-colors ${tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
+                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-base text-white outline-none transition-colors ${tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
                 />
                 {tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! && (
                   <p className="text-[9px] text-red-500 font-bold mt-1">Start point must be less than song duration</p>
@@ -1376,7 +1376,7 @@ export default function App() {
                       setTrimEnd(val);
                     }
                   }}
-                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-xs text-white outline-none transition-colors ${(parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart)) || (tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration!) ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
+                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-base text-white outline-none transition-colors ${(parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart)) || (tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration!) ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
                 />
                 {parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart) && (
                   <p className="text-[9px] text-red-500 font-bold mt-1">End point must be greater than start point</p>
