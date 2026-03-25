@@ -564,9 +564,9 @@ export default function App() {
           </div>
 
           {/* Progress */}
-          <div className="w-full mb-8 shrink-0 relative px-4">
+          <div className="w-full mb-8 shrink-0 relative">
             {currentTrack && (currentTrack.startTime || currentTrack.endTime) && (
-              <div className="absolute top-[11px] left-4 right-4 h-2 bg-pink-500/10 rounded-full overflow-hidden pointer-events-none">
+              <div className="absolute top-[11px] left-0 right-0 h-2 bg-pink-500/10 rounded-full overflow-hidden pointer-events-none">
                 <div 
                   className="absolute h-full bg-pink-500/30"
                   style={{
@@ -576,35 +576,51 @@ export default function App() {
                 />
               </div>
             )}
-            <input
-              type="range"
-              min={0}
-              max={duration || 100}
-              value={progress}
-              onMouseDown={() => setIsSeeking(true)}
-              onTouchStart={() => setIsSeeking(true)}
-              onChange={(e) => {
-                setProgress(Number(e.target.value));
-              }}
-              onMouseUp={(e) => {
-                setIsSeeking(false);
-                const val = Number((e.target as HTMLInputElement).value);
-                const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-                if (audio) {
-                  audio.currentTime = val;
-                }
-              }}
-              onTouchEnd={(e) => {
-                setIsSeeking(false);
-                const val = Number((e.target as HTMLInputElement).value);
-                const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-                if (audio) {
-                  audio.currentTime = val;
-                }
-              }}
-              className="w-full h-3 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-10 [&::-webkit-slider-thumb]:h-10 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-2xl [&::-webkit-slider-thumb]:border-[6px] [&::-webkit-slider-thumb]:border-pink-500 cursor-pointer relative z-10"
-            />
-            <div className="flex justify-between text-[10px] text-white/50 mt-3 font-mono px-1">
+            <div className="relative h-3 flex items-center">
+              <div className="absolute left-0 right-0 h-2 bg-white/20 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full bg-pink-500 ${isSeeking ? '' : 'transition-all duration-300'}`}
+                  style={{ width: `${(progress / (duration || 1)) * 100}%` }}
+                />
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                value={progress}
+                onMouseDown={() => setIsSeeking(true)}
+                onTouchStart={() => setIsSeeking(true)}
+                onChange={(e) => {
+                  setProgress(Number(e.target.value));
+                }}
+                onMouseUp={(e) => {
+                  setIsSeeking(false);
+                  const val = Number((e.target as HTMLInputElement).value);
+                  const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+                  if (audio) {
+                    audio.currentTime = val;
+                  }
+                }}
+                onTouchEnd={(e) => {
+                  setIsSeeking(false);
+                  const val = Number((e.target as HTMLInputElement).value);
+                  const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+                  if (audio) {
+                    audio.currentTime = val;
+                  }
+                }}
+                className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer z-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-pink-500 [&::-webkit-slider-thumb]:opacity-0 active:[&::-webkit-slider-thumb]:opacity-100 transition-opacity"
+              />
+              {/* Visual thumb that only shows when seeking */}
+              <div 
+                className={`absolute w-6 h-6 bg-white rounded-full border-2 border-pink-500 shadow-xl pointer-events-none z-20 transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-0'}`}
+                style={{ 
+                  left: `${(progress / (duration || 1)) * 100}%`,
+                  transform: 'translateX(-50%)'
+                }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-white/50 mt-3 font-mono">
               <span>{formatTime(progress)}</span>
               <span>-{formatTime(duration - progress)}</span>
             </div>
@@ -1099,13 +1115,13 @@ export default function App() {
         </div>
         {/* Progress bar at the very top of the mini player */}
         <div 
-          className="absolute -top-4 left-0 right-0 h-8 bg-transparent group/progress z-20 px-4" 
+          className="absolute top-0 left-0 right-0 h-1.5 bg-transparent group/progress z-20" 
           onClick={e => e.stopPropagation()}
         >
-          <div className="absolute top-4 left-4 right-4 h-1.5 bg-white/10 rounded-full">
+          <div className="absolute inset-0 bg-white/10">
             {track && (track.startTime || track.endTime) && (
               <div 
-                className="absolute h-full bg-pink-500/30 rounded-full"
+                className="absolute h-full bg-pink-500/30"
                 style={{
                   left: `${((track.startTime || 0) / (duration || 1)) * 100}%`,
                   width: `${(((track.endTime || duration) - (track.startTime || 0)) / (duration || 1)) * 100}%`
@@ -1113,10 +1129,11 @@ export default function App() {
               />
             )}
             <div 
-              className={`h-full bg-pink-500 rounded-full relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
+              className={`h-full bg-pink-500 relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
               style={{ width: `${(progress / (duration || 1)) * 100}%` }}
             >
-              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-[0_0_15px_rgba(236,72,153,0.5)] border-2 border-pink-500 transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-100 md:opacity-0 md:group-hover/progress:opacity-100'}`} />
+              {/* Visual thumb that only shows when seeking */}
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-xl border-2 border-pink-500 transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-0'}`} />
             </div>
           </div>
           <input
