@@ -100,6 +100,7 @@ export default function App() {
   const [trimStart, setTrimStart] = useState<string>('0');
   const [trimEnd, setTrimEnd] = useState<string>('0');
   const [hasStarted, setHasStarted] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
 
   const audio1Ref = useRef<HTMLAudioElement>(null);
   const audio2Ref = useRef<HTMLAudioElement>(null);
@@ -241,7 +242,7 @@ export default function App() {
     if (queue.length === 0) return;
     
     let nextIndex;
-    if (playMode === 'repeat' && auto) {
+    if (playMode === 'repeat') {
       nextIndex = currentIndex;
     } else if (playMode === 'random') {
       nextIndex = Math.floor(Math.random() * queue.length);
@@ -258,6 +259,12 @@ export default function App() {
   const handlePrev = () => {
     const queue = getActiveQueue();
     if (queue.length === 0) return;
+
+    if (playMode === 'repeat') {
+      playTrack(currentIndex, crossfadeEnabled, false, activePlaylistId);
+      return;
+    }
+
     const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
     if (currentAudio && currentAudio.currentTime > 3) {
       currentAudio.currentTime = 0;
@@ -300,7 +307,9 @@ export default function App() {
       const currentTrack = getActiveQueue()[currentIndex];
       if (!currentTrack) return;
 
-      setProgress(audio.currentTime);
+      if (!isSeeking) {
+        setProgress(audio.currentTime);
+      }
       setDuration(audio.duration || 0);
 
       // Update track duration in state if missing
@@ -572,11 +581,25 @@ export default function App() {
               min={0}
               max={duration || 100}
               value={progress}
+              onMouseDown={() => setIsSeeking(true)}
+              onTouchStart={() => setIsSeeking(true)}
               onChange={(e) => {
+                setProgress(Number(e.target.value));
+              }}
+              onMouseUp={(e) => {
+                setIsSeeking(false);
+                const val = Number((e.target as HTMLInputElement).value);
                 const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
                 if (audio) {
-                  audio.currentTime = Number(e.target.value);
-                  setProgress(Number(e.target.value));
+                  audio.currentTime = val;
+                }
+              }}
+              onTouchEnd={(e) => {
+                setIsSeeking(false);
+                const val = Number((e.target as HTMLInputElement).value);
+                const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+                if (audio) {
+                  audio.currentTime = val;
                 }
               }}
               className="w-full h-2 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer relative z-10"
@@ -1075,10 +1098,54 @@ export default function App() {
           </button>
         </div>
         {/* Progress bar at the very top of the mini player */}
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10">
-          <div 
-            className="h-full bg-pink-500 transition-all duration-300" 
-            style={{ width: `${(progress / duration) * 100}%` }}
+        <div 
+          className="absolute top-0 left-0 right-0 h-3 bg-transparent group/progress z-20" 
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10">
+            {track && (track.startTime || track.endTime) && (
+              <div 
+                className="absolute h-full bg-pink-500/30"
+                style={{
+                  left: `${((track.startTime || 0) / (duration || 1)) * 100}%`,
+                  width: `${(((track.endTime || duration) - (track.startTime || 0)) / (duration || 1)) * 100}%`
+                }}
+              />
+            )}
+            <div 
+              className="h-full bg-pink-500 transition-all duration-300 relative" 
+              style={{ width: `${(progress / (duration || 1)) * 100}%` }}
+            >
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity" />
+            </div>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            value={progress}
+            onMouseDown={() => setIsSeeking(true)}
+            onTouchStart={() => setIsSeeking(true)}
+            onChange={(e) => {
+              setProgress(Number(e.target.value));
+            }}
+            onMouseUp={(e) => {
+              setIsSeeking(false);
+              const val = Number((e.target as HTMLInputElement).value);
+              const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+              if (audio) {
+                audio.currentTime = val;
+              }
+            }}
+            onTouchEnd={(e) => {
+              setIsSeeking(false);
+              const val = Number((e.target as HTMLInputElement).value);
+              const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+              if (audio) {
+                audio.currentTime = val;
+              }
+            }}
+            className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer z-30 opacity-0"
           />
         </div>
       </div>
