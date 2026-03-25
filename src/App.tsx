@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, Music, Repeat, FolderHeart, ArrowLeft, MoreVertical, Trash2, X, Check, Shuffle, Settings } from 'lucide-react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
+import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, Music, Repeat, FolderHeart, ArrowLeft, MoreVertical, Trash2, X, Check, Shuffle, Settings, Tag, GripVertical, Edit2 } from 'lucide-react';
 
 interface Track {
   id: string;
@@ -13,6 +13,10 @@ interface Track {
   url: string;
   name: string;
   artist: string;
+  tags?: string[];
+  startTime?: number;
+  endTime?: number;
+  duration?: number;
 }
 
 interface Playlist {
@@ -87,6 +91,14 @@ export default function App() {
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [isSelectingForPlaylist, setIsSelectingForPlaylist] = useState(false);
+  const [playMode, setPlayMode] = useState<'order' | 'random' | 'repeat'>('order');
+  const [taggingTrackId, setTaggingTrackId] = useState<string | null>(null);
+  const [newTag, setNewTag] = useState('');
+  const [editingTrackId, setEditingTrackId] = useState<string | null>(null);
+  const [editingTrackName, setEditingTrackName] = useState('');
+  const [trimmingTrackId, setTrimmingTrackId] = useState<string | null>(null);
+  const [trimStart, setTrimStart] = useState<string>('0');
+  const [trimEnd, setTrimEnd] = useState<string>('0');
   const [hasStarted, setHasStarted] = useState(false);
 
   const audio1Ref = useRef<HTMLAudioElement>(null);
@@ -100,6 +112,31 @@ export default function App() {
   const isCrossfading = useRef(false);
   const fadeIntervals = useRef<(() => void)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showAddToPlaylist) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.track-menu-container') && !target.closest('.more-button')) {
+          setShowAddToPlaylist(null);
+        }
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showAddToPlaylist]);
+
+  useEffect(() => {
+    if (trimmingTrackId) {
+      const track = tracks.find(t => t.id === trimmingTrackId);
+      if (track && !track.duration) {
+        const tempAudio = new Audio(track.url);
+        tempAudio.addEventListener('loadedmetadata', () => {
+          setTracks(prev => prev.map(t => t.id === trimmingTrackId ? { ...t, duration: tempAudio.duration } : t));
+        });
+      }
+    }
+  }, [trimmingTrackId, tracks]);
 
   const initAudioContext = () => {
     if (!audioContextRef.current) {
@@ -165,6 +202,9 @@ export default function App() {
 
       nextGain.gain.value = 0;
       nextAudio.src = nextTrack.url;
+      if (nextTrack.startTime) {
+        nextAudio.currentTime = nextTrack.startTime;
+      }
 
       // Start fading out current
       const clearOut = fadeAudio(currentGain, 'out', fadeMs, currentGain.gain.value, fadeCurve, () => {
@@ -183,6 +223,10 @@ export default function App() {
     } else {
       currentAudio.pause();
       nextGain.gain.value = 1;
+      nextAudio.src = nextTrack.url;
+      if (nextTrack.startTime) {
+        nextAudio.currentTime = nextTrack.startTime;
+      }
       if (shouldPlay) nextAudio.play().catch(console.error);
     }
 
@@ -195,7 +239,19 @@ export default function App() {
   const handleNext = (auto = false) => {
     const queue = getActiveQueue();
     if (queue.length === 0) return;
-    const nextIndex = (currentIndex + 1) % queue.length;
+    
+    let nextIndex;
+    if (playMode === 'repeat' && auto) {
+      nextIndex = currentIndex;
+    } else if (playMode === 'random') {
+      nextIndex = Math.floor(Math.random() * queue.length);
+      if (queue.length > 1 && nextIndex === currentIndex) {
+        nextIndex = (nextIndex + 1) % queue.length;
+      }
+    } else {
+      nextIndex = (currentIndex + 1) % queue.length;
+    }
+    
     playTrack(nextIndex, crossfadeEnabled, auto ? true : false, activePlaylistId);
   };
 
@@ -240,10 +296,32 @@ export default function App() {
     if (audioNum === activeAudioRef.current) {
       const audio = audioNum === 1 ? audio1Ref.current : audio2Ref.current;
       if (!audio) return;
+      
+      const currentTrack = getActiveQueue()[currentIndex];
+      if (!currentTrack) return;
+
       setProgress(audio.currentTime);
       setDuration(audio.duration || 0);
 
-      if (crossfadeEnabled && audio.duration && audio.currentTime >= audio.duration - crossfadeDuration) {
+      // Update track duration in state if missing
+      if (audio.duration && !currentTrack.duration) {
+        setTracks(prev => prev.map(t => t.id === currentTrack.id ? { ...t, duration: audio.duration } : t));
+      }
+
+      const effectiveEndTime = currentTrack.endTime || audio.duration;
+      const effectiveStartTime = currentTrack.startTime || 0;
+
+      // Ensure we stay within start point
+      if (audio.currentTime < effectiveStartTime - 0.5) {
+        audio.currentTime = effectiveStartTime;
+      }
+      
+      if (effectiveEndTime && audio.currentTime >= effectiveEndTime) {
+        if (!isCrossfading.current) {
+          isCrossfading.current = true;
+          handleNext(true);
+        }
+      } else if (crossfadeEnabled && effectiveEndTime && audio.currentTime >= effectiveEndTime - crossfadeDuration) {
         if (!isCrossfading.current) {
           isCrossfading.current = true;
           handleNext(true);
@@ -341,6 +419,116 @@ export default function App() {
     setShowAddToPlaylist(null);
   };
 
+  const addTag = (trackId: string, tag: string) => {
+    if (!tag.trim()) return;
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const tags = t.tags || [];
+        if (!tags.includes(tag.trim())) {
+          return { ...t, tags: [...tags, tag.trim()] };
+        }
+      }
+      return t;
+    }));
+    setNewTag('');
+  };
+
+  const removeTag = (trackId: string, tag: string) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return { ...t, tags: (t.tags || []).filter(tg => tg !== tag) };
+      }
+      return t;
+    }));
+  };
+
+  const handleEditTrackName = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTrackId || !editingTrackName.trim()) return;
+    setTracks(prev => prev.map(t => {
+      if (t.id === editingTrackId) {
+        return { ...t, name: editingTrackName.trim() };
+      }
+      return t;
+    }));
+    setEditingTrackId(null);
+    setEditingTrackName('');
+  };
+
+  const handleTrimTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trimmingTrackId) return;
+    const start = parseFloat(trimStart);
+    const end = parseFloat(trimEnd);
+    
+    const track = tracks.find(t => t.id === trimmingTrackId);
+    if (!track) return;
+
+    const finalStart = !isNaN(start) && start > 0 ? start : 0;
+    let finalEnd = !isNaN(end) && end > 0 ? end : 0;
+
+    // Validation: Start must not exceed duration if duration is known
+    if (track.duration && finalStart >= track.duration) {
+      alert("Start point must be less than song duration.");
+      return;
+    }
+
+    // Validation: End must be greater than Start
+    if (finalEnd > 0 && finalEnd <= finalStart) {
+      alert("End point must be greater than start point.");
+      return;
+    }
+
+    // Validation: End must not exceed duration if duration is known
+    if (track.duration && finalEnd > track.duration) {
+      finalEnd = track.duration;
+    }
+
+    setTracks(prev => prev.map(t => {
+      if (t.id === trimmingTrackId) {
+        return { 
+          ...t, 
+          startTime: finalStart > 0 ? finalStart : undefined,
+          endTime: finalEnd > 0 ? finalEnd : undefined
+        };
+      }
+      return t;
+    }));
+    setTrimmingTrackId(null);
+  };
+
+  const handleReorderTracks = (newTracks: Track[]) => {
+    const currentTrack = tracks[currentIndex];
+    setTracks(newTracks);
+    if (currentTrack && activePlaylistId === null) {
+      const newIndex = newTracks.findIndex(t => t.id === currentTrack.id);
+      if (newIndex !== -1) {
+        setCurrentIndex(newIndex);
+      }
+    }
+  };
+
+  const handleReorderPlaylistTracks = (newPlaylistTracks: Track[]) => {
+    if (!selectedPlaylistId) return;
+    const newTrackIds = newPlaylistTracks.map(t => t.id);
+    setPlaylists(prev => prev.map(p => {
+      if (p.id === selectedPlaylistId) {
+        return { ...p, trackIds: newTrackIds };
+      }
+      return p;
+    }));
+    
+    if (activePlaylistId === selectedPlaylistId) {
+      const currentTrack = getActiveQueue()[currentIndex];
+      if (currentTrack) {
+        const newIndex = newTrackIds.indexOf(currentTrack.id);
+        if (newIndex !== -1) {
+          setCurrentIndex(newIndex);
+        }
+      }
+    }
+  };
+
   const currentTrack = getActiveQueue()[currentIndex];
 
   const renderPlayer = () => (
@@ -367,7 +555,18 @@ export default function App() {
           </div>
 
           {/* Progress */}
-          <div className="w-full mb-8 shrink-0">
+          <div className="w-full mb-8 shrink-0 relative">
+            {currentTrack && (currentTrack.startTime || currentTrack.endTime) && (
+              <div className="absolute top-[11px] left-0 right-0 h-2 bg-pink-500/10 rounded-full overflow-hidden pointer-events-none">
+                <div 
+                  className="absolute h-full bg-pink-500/30"
+                  style={{
+                    left: `${((currentTrack.startTime || 0) / (duration || 1)) * 100}%`,
+                    width: `${(((currentTrack.endTime || duration) - (currentTrack.startTime || 0)) / (duration || 1)) * 100}%`
+                  }}
+                />
+              </div>
+            )}
             <input
               type="range"
               min={0}
@@ -380,7 +579,7 @@ export default function App() {
                   setProgress(Number(e.target.value));
                 }
               }}
-              className="w-full h-2 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+              className="w-full h-2 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer relative z-10"
             />
             <div className="flex justify-between text-[10px] text-white/50 mt-2 font-mono">
               <span>{formatTime(progress)}</span>
@@ -467,12 +666,18 @@ export default function App() {
               <p className="text-xs font-medium uppercase tracking-widest">No tracks in library</p>
             </div>
           ) : (
-            tracks.map((track, index) => {
+            <Reorder.Group axis="y" values={tracks} onReorder={handleReorderTracks} className="space-y-2">
+              {tracks.map((track, index) => {
               const isSelected = isSelectingForPlaylist && selectedPlaylistId && playlists.find(p => p.id === selectedPlaylistId)?.trackIds.includes(track.id);
               return (
-              <div key={track.id} className="relative">
-                <div className={`w-full flex items-center text-left p-3 rounded-xl transition-colors ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-                  <button 
+                <Reorder.Item key={track.id} value={track} className="relative">
+                  <div className={`w-full flex items-center text-left p-3 rounded-xl transition-colors ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+                    {!isSelectingForPlaylist && (
+                      <div className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0">
+                        <GripVertical size={16} />
+                      </div>
+                    )}
+                    <button 
                     onClick={() => {
                       if (isSelectingForPlaylist && selectedPlaylistId) {
                         if (isSelected) {
@@ -503,13 +708,24 @@ export default function App() {
                       <p className={`truncate text-sm font-medium ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-pink-500' : 'text-white'}`}>
                         {track.name}
                       </p>
-                      <p className="truncate text-xs text-white/50">{track.artist}</p>
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
+                        {track.tags && track.tags.length > 0 && (
+                          <div className="flex gap-1 overflow-hidden">
+                            {track.tags.map(tag => (
+                              <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </button>
                   {!isSelectingForPlaylist && (
                     <button 
-                      onClick={() => setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id)}
-                      className="p-2 text-white/50 hover:text-white transition-colors ml-2"
+                      onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
+                      className="p-2 text-white/50 hover:text-white transition-colors ml-2 more-button"
                     >
                       <MoreVertical size={20} />
                     </button>
@@ -517,7 +733,7 @@ export default function App() {
                 </div>
                 
                 {showAddToPlaylist === track.id && (
-                  <div className="absolute right-12 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden">
+                  <div className="absolute right-12 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
                     <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
                       Add to Playlist
                     </div>
@@ -537,15 +753,37 @@ export default function App() {
                       )}
                     </div>
                     <button 
-                      onClick={() => { setIsCreatingPlaylist(true); setShowAddToPlaylist(null); }}
-                      className="w-full text-left px-3 py-2 text-xs text-pink-500 hover:bg-white/10 transition-colors border-t border-white/10"
+                      onClick={() => { setTaggingTrackId(track.id); setShowAddToPlaylist(null); }}
+                      className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
                     >
-                      + New Playlist
+                      <Tag size={12} />
+                      Manage Tags
+                    </button>
+                    <button 
+                      onClick={() => { setEditingTrackId(track.id); setEditingTrackName(track.name); setShowAddToPlaylist(null); }}
+                      className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+                    >
+                      <Edit2 size={12} />
+                      Edit Name
+                    </button>
+                    <button 
+                      onClick={() => { 
+                        setTrimmingTrackId(track.id); 
+                        setTrimStart((track.startTime || 0).toString());
+                        setTrimEnd((track.endTime || 0).toString());
+                        setShowAddToPlaylist(null); 
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+                    >
+                      <Settings size={12} />
+                      Set Play Range
                     </button>
                   </div>
                 )}
-              </div>
-            )})
+              </Reorder.Item>
+              );
+            })}
+          </Reorder.Group>
           )
         ) : libraryTab === 'playlists' ? (
           playlists.length === 0 ? (
@@ -579,84 +817,106 @@ export default function App() {
             ))
           )
         ) : (
-          <div className="flex flex-col gap-8 p-4 bg-white/5 rounded-2xl border border-white/10 pb-32">
-            <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-6 pb-32">
+            {/* Play Mode Section */}
+            <div className="flex flex-col gap-6 p-4 bg-white/5 rounded-2xl border border-white/10">
               <div className="flex items-center gap-3">
-                <Shuffle size={20} className={crossfadeEnabled ? "text-pink-500" : "text-white/30"} />
-                <span className="text-xs font-medium text-white">Enable Crossfade</span>
+                <Repeat size={20} className="text-pink-500" />
+                <span className="text-xs font-medium text-white">Play Mode</span>
               </div>
-              <button
-                onClick={() => setCrossfadeEnabled(!crossfadeEnabled)}
-                className={`w-14 h-7 rounded-full transition-colors relative ${crossfadeEnabled ? 'bg-pink-500' : 'bg-white/20'}`}
-              >
-                <div className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${crossfadeEnabled ? 'translate-x-7' : 'translate-x-0.5'}`} />
-              </button>
+              <div className="grid grid-cols-3 gap-2 bg-white/5 p-1 rounded-xl">
+                {(['order', 'random', 'repeat'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setPlayMode(mode)}
+                    className={`text-[10px] py-3 rounded-lg uppercase tracking-wider transition-all ${playMode === mode ? 'bg-pink-500 text-white font-bold shadow-lg' : 'text-white/50 hover:text-white/80 hover:bg-white/5'}`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
             </div>
-            
-            {crossfadeEnabled && (
-              <div className="flex flex-col gap-8">
-                <div className="flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">Crossfade Duration</span>
-                    <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{crossfadeDuration}s</span>
-                  </div>
-                  <div className="flex items-center gap-4 py-2">
-                    <span className="text-[10px] text-white/30 w-6">0s</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={10}
-                      step={0.5}
-                      value={crossfadeDuration}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        setCrossfadeDuration(val);
-                        if (overlapDuration > val) {
-                          setOverlapDuration(val);
-                        }
-                      }}
-                      className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-                    />
-                    <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
-                  </div>
-                </div>
 
-                <div className="flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">Overlap Duration</span>
-                    <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{overlapDuration}s</span>
-                  </div>
-                  <div className="flex items-center gap-4 py-2">
-                    <span className="text-[10px] text-white/30 w-6">0s</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={10}
-                      step={0.5}
-                      value={overlapDuration}
-                      onChange={(e) => setOverlapDuration(Math.min(Number(e.target.value), crossfadeDuration))}
-                      className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
-                    />
-                    <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
-                  </div>
+            {/* Crossfade Section */}
+            <div className="flex flex-col gap-6 p-4 bg-white/5 rounded-2xl border border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Shuffle size={20} className={crossfadeEnabled ? "text-pink-500" : "text-white/30"} />
+                  <span className="text-xs font-medium text-white">Crossfade Settings</span>
                 </div>
-
-                <div className="flex flex-col gap-4">
-                  <span className="text-xs text-white/50 uppercase tracking-wider font-semibold">Fade Curve</span>
-                  <div className="grid grid-cols-3 gap-2 bg-white/5 p-1 rounded-xl">
-                    {(['linear', 'equal-power', 'quadratic'] as FadeCurve[]).map(c => (
-                      <button
-                        key={c}
-                        onClick={() => setFadeCurve(c)}
-                        className={`text-[10px] py-3 rounded-lg uppercase tracking-wider transition-all ${fadeCurve === c ? 'bg-white text-black font-bold shadow-lg' : 'text-white/50 hover:text-white/80 hover:bg-white/5'}`}
-                      >
-                        {c.replace('-', ' ')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <button
+                  onClick={() => setCrossfadeEnabled(!crossfadeEnabled)}
+                  className={`w-14 h-7 rounded-full transition-colors relative ${crossfadeEnabled ? 'bg-pink-500' : 'bg-white/20'}`}
+                >
+                  <div className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${crossfadeEnabled ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                </button>
               </div>
-            )}
+              
+              {crossfadeEnabled && (
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Crossfade Duration</span>
+                      <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{crossfadeDuration}s</span>
+                    </div>
+                    <div className="flex items-center gap-4 py-2">
+                      <span className="text-[10px] text-white/30 w-6">0s</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={10}
+                        step={0.5}
+                        value={crossfadeDuration}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setCrossfadeDuration(val);
+                          if (overlapDuration > val) {
+                            setOverlapDuration(val);
+                          }
+                        }}
+                        className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                      />
+                      <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Overlap Duration</span>
+                      <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{overlapDuration}s</span>
+                    </div>
+                    <div className="flex items-center gap-4 py-2">
+                      <span className="text-[10px] text-white/30 w-6">0s</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={10}
+                        step={0.5}
+                        value={overlapDuration}
+                        onChange={(e) => setOverlapDuration(Math.min(Number(e.target.value), crossfadeDuration))}
+                        className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                      />
+                      <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <span className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Fade Curve</span>
+                    <div className="grid grid-cols-3 gap-2 bg-white/5 p-1 rounded-xl">
+                      {(['linear', 'equal-power', 'quadratic'] as FadeCurve[]).map(c => (
+                        <button
+                          key={c}
+                          onClick={() => setFadeCurve(c)}
+                          className={`text-[10px] py-3 rounded-lg uppercase tracking-wider transition-all ${fadeCurve === c ? 'bg-pink-500 text-white font-bold shadow-lg' : 'text-white/50 hover:text-white/80 hover:bg-white/5'}`}
+                        >
+                          {c.replace('-', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -687,8 +947,12 @@ export default function App() {
               <p className="text-xs font-medium uppercase tracking-widest">Playlist is empty</p>
             </div>
           ) : (
-            playlistTracks.map((track, index) => (
-              <div key={`${track.id}-${index}`} className={`w-full flex items-center p-3 rounded-xl transition-colors group ${index === currentIndex && activePlaylistId === playlist.id ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+            <Reorder.Group axis="y" values={playlistTracks} onReorder={handleReorderPlaylistTracks} className="space-y-2">
+              {playlistTracks.map((track, index) => (
+              <Reorder.Item key={`${track.id}-${index}`} value={track} className={`w-full flex items-center p-3 rounded-xl transition-colors group ${index === currentIndex && activePlaylistId === playlist.id ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+                <div className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0">
+                  <GripVertical size={16} />
+                </div>
                 <button
                   onClick={() => handleSelectTrack(index, playlist.id)}
                   className="flex-1 flex items-center text-left min-w-0"
@@ -708,18 +972,72 @@ export default function App() {
                     <p className={`truncate text-sm font-medium ${index === currentIndex && activePlaylistId === playlist.id ? 'text-pink-500' : 'text-white'}`}>
                       {track.name}
                     </p>
-                    <p className="truncate text-xs text-white/50">{track.artist}</p>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
+                      {track.tags && track.tags.length > 0 && (
+                        <div className="flex gap-1 overflow-hidden">
+                          {track.tags.map(tag => (
+                            <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); removeFromPlaylist(playlist.id, track.id); }}
-                  className="p-2 text-white/30 hover:text-white opacity-0 group-hover:opacity-100 transition-all ml-2"
-                  title="Remove from Playlist"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            ))
+                <div className="relative flex items-center ml-2">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
+                    className="p-2 text-white/30 hover:text-white transition-colors more-button"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+                  
+                  {showAddToPlaylist === track.id && (
+                    <div className="absolute right-0 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
+                      <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
+                        Track Options
+                      </div>
+                      <button 
+                        onClick={() => { setTaggingTrackId(track.id); setShowAddToPlaylist(null); }}
+                        className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors flex items-center gap-2"
+                      >
+                        <Tag size={12} />
+                        Manage Tags
+                      </button>
+                      <button 
+                        onClick={() => { setEditingTrackId(track.id); setEditingTrackName(track.name); setShowAddToPlaylist(null); }}
+                        className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+                      >
+                        <Edit2 size={12} />
+                        Edit Name
+                      </button>
+                      <button 
+                        onClick={() => { 
+                          setTrimmingTrackId(track.id); 
+                          setTrimStart((track.startTime || 0).toString());
+                          setTrimEnd((track.endTime || 0).toString());
+                          setShowAddToPlaylist(null); 
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+                      >
+                        <Settings size={12} />
+                        Set Play Range
+                      </button>
+                      <button 
+                        onClick={() => { removeFromPlaylist(playlist.id, track.id); setShowAddToPlaylist(null); }}
+                        className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+                      >
+                        <X size={12} />
+                        Remove from Playlist
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
           )}
         </div>
       </div>
@@ -865,8 +1183,15 @@ export default function App() {
 
       {/* Create Playlist Modal */}
       {isCreatingPlaylist && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <form onSubmit={handleCreatePlaylist} className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setIsCreatingPlaylist(false)}
+        >
+          <form 
+            onSubmit={handleCreatePlaylist} 
+            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
             <h3 className="text-base font-bold mb-4">New Playlist</h3>
             <input
               type="text"
@@ -879,6 +1204,203 @@ export default function App() {
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setIsCreatingPlaylist(false)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
               <button type="submit" disabled={!newPlaylistName.trim()} className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">Create</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Manage Tags Modal */}
+      {taggingTrackId && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setTaggingTrackId(null)}
+        >
+          <div 
+            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold">Manage Tags</h3>
+              <button onClick={() => setTaggingTrackId(null)} className="p-1 text-white/30 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2 mb-6">
+              {tracks.find(t => t.id === taggingTrackId)?.tags?.map(tag => (
+                <span key={tag} className="flex items-center gap-1.5 px-2.5 py-1 bg-pink-500/20 text-pink-500 rounded-full text-[10px] font-bold border border-pink-500/30">
+                  {tag}
+                  <button onClick={() => removeTag(taggingTrackId, tag)} className="hover:text-white transition-colors">
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {(!tracks.find(t => t.id === taggingTrackId)?.tags || tracks.find(t => t.id === taggingTrackId)?.tags?.length === 0) && (
+                <p className="text-[10px] text-white/30 italic">No tags added yet</p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                autoFocus
+                value={newTag}
+                onChange={e => setNewTag(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addTag(taggingTrackId, newTag)}
+                placeholder="Add new tag..."
+                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-pink-500 transition-colors"
+              />
+              <button 
+                onClick={() => addTag(taggingTrackId, newTag)}
+                disabled={!newTag.trim()}
+                className="w-12 flex items-center justify-center bg-pink-500 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Song Name Modal */}
+      {editingTrackId && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setEditingTrackId(null)}
+        >
+          <form 
+            onSubmit={handleEditTrackName} 
+            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold">Edit Song Name</h3>
+              <button type="button" onClick={() => setEditingTrackId(null)} className="p-1 text-white/30 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <input
+              type="text"
+              autoFocus
+              value={editingTrackName}
+              onChange={e => setEditingTrackName(e.target.value)}
+              placeholder="Song name"
+              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-pink-500 transition-colors mb-6"
+            />
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setEditingTrackId(null)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
+              <button type="submit" disabled={!editingTrackName.trim()} className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">Save</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Set Play Range Modal */}
+      {trimmingTrackId && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setTrimmingTrackId(null)}
+        >
+          <form 
+            onSubmit={handleTrimTrack} 
+            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold">Set Play Range</h3>
+              <button type="button" onClick={() => setTrimmingTrackId(null)} className="p-1 text-white/30 hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-[10px] text-white/50 mb-6 leading-relaxed">
+              Set the start and end points in seconds. Leave as 0 to play from the beginning or until the end.
+              {tracks.find(t => t.id === trimmingTrackId)?.duration ? (
+                <span className="block mt-1 text-pink-500 font-bold">
+                  Track Duration: {formatTime(tracks.find(t => t.id === trimmingTrackId)!.duration!)} ({tracks.find(t => t.id === trimmingTrackId)!.duration!.toFixed(2)}s)
+                </span>
+              ) : (
+                <span className="block mt-1 text-white/30 italic">
+                  Loading track duration...
+                </span>
+              )}
+            </p>
+            <div className="space-y-4 mb-8">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Start Point (s)</label>
+                  {isPlaying && getActiveQueue()[currentIndex]?.id === trimmingTrackId && (
+                    <button 
+                      type="button"
+                      onClick={() => setTrimStart(progress.toFixed(2))}
+                      className="text-[9px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-tighter"
+                    >
+                      Use Current
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={trimStart}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                      setTrimStart(val);
+                    }
+                  }}
+                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-xs text-white outline-none transition-colors ${tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
+                />
+                {tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! && (
+                  <p className="text-[9px] text-red-500 font-bold mt-1">Start point must be less than song duration</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-bold">End Point (s)</label>
+                  {isPlaying && getActiveQueue()[currentIndex]?.id === trimmingTrackId && (
+                    <button 
+                      type="button"
+                      onClick={() => setTrimEnd(progress.toFixed(2))}
+                      className="text-[9px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-tighter"
+                    >
+                      Use Current
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={trimEnd}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                      setTrimEnd(val);
+                    }
+                  }}
+                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-xs text-white outline-none transition-colors ${(parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart)) || (tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration!) ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
+                />
+                {parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart) && (
+                  <p className="text-[9px] text-red-500 font-bold mt-1">End point must be greater than start point</p>
+                )}
+                {tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration! && (
+                  <p className="text-[9px] text-red-500 font-bold mt-1">End point cannot exceed song duration</p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setTrimmingTrackId(null)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
+              <button 
+                type="submit" 
+                disabled={
+                  (parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart)) || 
+                  (tracks.find(t => t.id === trimmingTrackId)?.duration && (
+                    parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! ||
+                    (parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration!)
+                  ))
+                }
+                className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Save Range
+              </button>
             </div>
           </form>
         </div>
