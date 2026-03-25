@@ -602,7 +602,7 @@ export default function App() {
                   audio.currentTime = val;
                 }
               }}
-              className="w-full h-2 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer relative z-10"
+              className="w-full h-3 bg-white/20 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-pink-500 cursor-pointer relative z-10"
             />
             <div className="flex justify-between text-[10px] text-white/50 mt-2 font-mono">
               <span>{formatTime(progress)}</span>
@@ -1099,10 +1099,10 @@ export default function App() {
         </div>
         {/* Progress bar at the very top of the mini player */}
         <div 
-          className="absolute top-0 left-0 right-0 h-3 bg-transparent group/progress z-20" 
+          className="absolute -top-3 left-0 right-0 h-6 bg-transparent group/progress z-20" 
           onClick={e => e.stopPropagation()}
         >
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10">
+          <div className="absolute top-3 left-0 right-0 h-1 bg-white/10">
             {track && (track.startTime || track.endTime) && (
               <div 
                 className="absolute h-full bg-pink-500/30"
@@ -1113,10 +1113,10 @@ export default function App() {
               />
             )}
             <div 
-              className="h-full bg-pink-500 transition-all duration-300 relative" 
+              className={`h-full bg-pink-500 relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
               style={{ width: `${(progress / (duration || 1)) * 100}%` }}
             >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity" />
+              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-0 group-hover/progress:opacity-100'}`} />
             </div>
           </div>
           <input
