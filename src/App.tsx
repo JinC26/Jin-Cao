@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { get, set } from 'idb-keyval';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, Music, Repeat, FolderHeart, ArrowLeft, MoreVertical, Trash2, X, Check, Shuffle, Settings, Tag, GripVertical, Edit2 } from 'lucide-react';
 
@@ -101,6 +102,10 @@ export default function App() {
   const [trimEnd, setTrimEnd] = useState<string>('0');
   const [hasStarted, setHasStarted] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  
+  const playerTrackRef = useRef<HTMLDivElement>(null);
+  const miniTrackRef = useRef<HTMLDivElement>(null);
 
   const audio1Ref = useRef<HTMLAudioElement>(null);
   const audio2Ref = useRef<HTMLAudioElement>(null);
@@ -113,6 +118,64 @@ export default function App() {
   const isCrossfading = useRef(false);
   const fadeIntervals = useRef<(() => void)[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const storedTracks = await get('tracks');
+        if (storedTracks) {
+          const tracksWithUrls = storedTracks.map((t: Track) => ({
+            ...t,
+            url: URL.createObjectURL(t.file)
+          }));
+          setTracks(tracksWithUrls);
+        }
+        
+        const storedPlaylists = await get('playlists');
+        if (storedPlaylists) {
+          setPlaylists(storedPlaylists);
+        }
+
+        const storedSettings = await get('settings');
+        if (storedSettings) {
+          if (storedSettings.crossfadeEnabled !== undefined) setCrossfadeEnabled(storedSettings.crossfadeEnabled);
+          if (storedSettings.crossfadeDuration !== undefined) setCrossfadeDuration(storedSettings.crossfadeDuration);
+          if (storedSettings.overlapDuration !== undefined) setOverlapDuration(storedSettings.overlapDuration);
+          if (storedSettings.fadeCurve !== undefined) setFadeCurve(storedSettings.fadeCurve);
+          if (storedSettings.playMode !== undefined) setPlayMode(storedSettings.playMode);
+        }
+      } catch (e) {
+        console.error("Failed to load data from IndexedDB", e);
+      } finally {
+        setIsDataLoaded(true);
+      }
+    };
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      set('tracks', tracks);
+    }
+  }, [tracks, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      set('playlists', playlists);
+    }
+  }, [playlists, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      set('settings', {
+        crossfadeEnabled,
+        crossfadeDuration,
+        overlapDuration,
+        fadeCurve,
+        playMode
+      });
+    }
+  }, [crossfadeEnabled, crossfadeDuration, overlapDuration, fadeCurve, playMode, isDataLoaded]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -345,6 +408,34 @@ export default function App() {
     }
   };
 
+  const handleSliderPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    setIsSeeking(true);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleSliderPointerMove = (e: React.PointerEvent, trackRef: React.RefObject<HTMLDivElement>) => {
+    if (!isSeeking || !trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percentage = x / rect.width;
+    setProgress(percentage * duration);
+  };
+
+  const handleSliderPointerUp = (e: React.PointerEvent) => {
+    if (!isSeeking) return;
+    setIsSeeking(false);
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    
+    const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+    if (audio) {
+      const track = getActiveQueue()[currentIndex];
+      const effectiveDuration = track?.duration || audio.duration || 0;
+      // We use the progress state which was updated in Move
+      audio.currentTime = progress;
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
     const flacFiles = files.filter(f => f.name.toLowerCase().endsWith('.flac') || f.type === 'audio/flac');
@@ -407,6 +498,20 @@ export default function App() {
       setView('library');
       setSelectedPlaylistId(null);
     }
+  };
+
+  const deleteTrack = (trackId: string) => {
+    setTracks(prev => {
+      const trackToDelete = prev.find(t => t.id === trackId);
+      if (trackToDelete) {
+        URL.revokeObjectURL(trackToDelete.url);
+      }
+      return prev.filter(t => t.id !== trackId);
+    });
+    setPlaylists(prev => prev.map(p => ({
+      ...p,
+      trackIds: p.trackIds.filter(id => id !== trackId)
+    })));
   };
 
   const removeFromPlaylist = (playlistId: string, trackId: string) => {
@@ -564,63 +669,44 @@ export default function App() {
           </div>
 
           {/* Progress */}
-          <div className="w-full mb-8 shrink-0 relative">
-            {currentTrack && (currentTrack.startTime || currentTrack.endTime) && (
-              <div className="absolute top-[11px] left-0 right-0 h-2 bg-pink-500/10 rounded-full overflow-hidden pointer-events-none">
-                <div 
-                  className="absolute h-full bg-pink-500/30"
-                  style={{
-                    left: `${((currentTrack.startTime || 0) / (duration || 1)) * 100}%`,
-                    width: `${(((currentTrack.endTime || duration) - (currentTrack.startTime || 0)) / (duration || 1)) * 100}%`
-                  }}
-                />
-              </div>
-            )}
-            <div className="relative h-3 flex items-center">
-              <div className="absolute left-0 right-0 h-2 bg-white/20 rounded-full overflow-hidden">
+          <div className="w-full mb-8 shrink-0 relative px-4">
+            <div className="relative h-6 flex items-center group/progress" ref={playerTrackRef}>
+              {/* Background Track */}
+              <div className="absolute left-0 right-0 h-1.5 bg-white/10 rounded-full overflow-hidden pointer-events-none">
+                {currentTrack && (currentTrack.startTime || currentTrack.endTime) && (
+                  <div 
+                    className="absolute h-full bg-pink-500/20"
+                    style={{
+                      left: `${((currentTrack.startTime || 0) / (duration || 1)) * 100}%`,
+                      width: `${(((currentTrack.endTime || duration) - (currentTrack.startTime || 0)) / (duration || 1)) * 100}%`
+                    }}
+                  />
+                )}
                 <div 
                   className={`h-full bg-pink-500 ${isSeeking ? '' : 'transition-all duration-300'}`}
                   style={{ width: `${(progress / (duration || 1)) * 100}%` }}
                 />
               </div>
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                value={progress}
-                onMouseDown={() => setIsSeeking(true)}
-                onTouchStart={() => setIsSeeking(true)}
-                onChange={(e) => {
-                  setProgress(Number(e.target.value));
-                }}
-                onMouseUp={(e) => {
-                  setIsSeeking(false);
-                  const val = Number((e.target as HTMLInputElement).value);
-                  const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-                  if (audio) {
-                    audio.currentTime = val;
-                  }
-                }}
-                onTouchEnd={(e) => {
-                  setIsSeeking(false);
-                  const val = Number((e.target as HTMLInputElement).value);
-                  const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-                  if (audio) {
-                    audio.currentTime = val;
-                  }
-                }}
-                className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer z-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-pink-500 [&::-webkit-slider-thumb]:opacity-0 active:[&::-webkit-slider-thumb]:opacity-100 transition-opacity"
-              />
-              {/* Visual thumb that only shows when seeking */}
+              
+              {/* Draggable Thumb */}
               <div 
-                className={`absolute w-6 h-6 bg-white rounded-full border-2 border-pink-500 shadow-xl pointer-events-none z-20 transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-0'}`}
+                className="absolute top-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing"
                 style={{ 
                   left: `${(progress / (duration || 1)) * 100}%`,
-                  transform: 'translateX(-50%)'
+                  transform: 'translate(-50%, -50%)'
                 }}
-              />
+                onPointerDown={handleSliderPointerDown}
+                onPointerMove={(e) => handleSliderPointerMove(e, playerTrackRef)}
+                onPointerUp={handleSliderPointerUp}
+                onPointerCancel={handleSliderPointerUp}
+              >
+                {/* Visual Thumb */}
+                <div className={`w-6 h-6 bg-white rounded-full border-2 border-pink-500 shadow-xl transition-all duration-200 ${isSeeking ? 'scale-125 opacity-100' : 'scale-75 opacity-60 group-hover/progress:opacity-100 group-hover/progress:scale-100'}`} />
+                {/* Larger hit area for the thumb */}
+                <div className="absolute inset-[-12px] rounded-full" />
+              </div>
             </div>
-            <div className="flex justify-between text-[10px] text-white/50 mt-3 font-mono">
+            <div className="flex justify-between text-[10px] text-white/50 mt-2 font-mono px-1">
               <span>{formatTime(progress)}</span>
               <span>-{formatTime(duration - progress)}</span>
             </div>
@@ -816,6 +902,16 @@ export default function App() {
                     >
                       <Settings size={12} />
                       Set Play Range
+                    </button>
+                    <button 
+                      onClick={() => {
+                        deleteTrack(track.id);
+                        setShowAddToPlaylist(null);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/20 transition-colors border-t border-white/10 flex items-center gap-2"
+                    >
+                      <Trash2 size={12} />
+                      Delete Track
                     </button>
                   </div>
                 )}
@@ -1115,13 +1211,14 @@ export default function App() {
         </div>
         {/* Progress bar at the very top of the mini player */}
         <div 
-          className="absolute top-0 left-0 right-0 h-1.5 bg-transparent group/progress z-20" 
+          className="absolute top-0 left-0 right-0 h-2 bg-transparent group/progress z-20" 
           onClick={e => e.stopPropagation()}
+          ref={miniTrackRef}
         >
-          <div className="absolute inset-0 bg-white/10">
+          <div className="absolute inset-0 bg-white/5">
             {track && (track.startTime || track.endTime) && (
               <div 
-                className="absolute h-full bg-pink-500/30"
+                className="absolute h-full bg-pink-500/10"
                 style={{
                   left: `${((track.startTime || 0) / (duration || 1)) * 100}%`,
                   width: `${(((track.endTime || duration) - (track.startTime || 0)) / (duration || 1)) * 100}%`
@@ -1132,42 +1229,34 @@ export default function App() {
               className={`h-full bg-pink-500 relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
               style={{ width: `${(progress / (duration || 1)) * 100}%` }}
             >
-              {/* Visual thumb that only shows when seeking */}
-              <div className={`absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-xl border-2 border-pink-500 transition-opacity ${isSeeking ? 'opacity-100' : 'opacity-0'}`} />
+              {/* Draggable Thumb for Mini Player */}
+              <div 
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-30 cursor-grab active:cursor-grabbing"
+                onPointerDown={handleSliderPointerDown}
+                onPointerMove={(e) => handleSliderPointerMove(e, miniTrackRef)}
+                onPointerUp={handleSliderPointerUp}
+                onPointerCancel={handleSliderPointerUp}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full shadow-xl border-2 border-pink-500 transition-all duration-200 ${isSeeking ? 'scale-110 opacity-100' : 'scale-50 opacity-0 group-hover/progress:opacity-100 group-hover/progress:scale-100'}`} />
+                <div className="absolute inset-[-10px] rounded-full" />
+              </div>
             </div>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            value={progress}
-            onMouseDown={() => setIsSeeking(true)}
-            onTouchStart={() => setIsSeeking(true)}
-            onChange={(e) => {
-              setProgress(Number(e.target.value));
-            }}
-            onMouseUp={(e) => {
-              setIsSeeking(false);
-              const val = Number((e.target as HTMLInputElement).value);
-              const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-              if (audio) {
-                audio.currentTime = val;
-              }
-            }}
-            onTouchEnd={(e) => {
-              setIsSeeking(false);
-              const val = Number((e.target as HTMLInputElement).value);
-              const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-              if (audio) {
-                audio.currentTime = val;
-              }
-            }}
-            className="absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer z-30 opacity-0"
-          />
         </div>
       </div>
     );
   };
+
+  if (!isDataLoaded) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white">
+        <div className="animate-pulse flex flex-col items-center">
+          <Music size={48} className="text-pink-500 mb-4 opacity-50" />
+          <p className="text-white/50 text-sm tracking-widest uppercase">Loading Library...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
