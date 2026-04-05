@@ -122,20 +122,6 @@ export default function App() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const storedTracks = await get('tracks');
-        if (storedTracks) {
-          const tracksWithUrls = storedTracks.map((t: Track) => ({
-            ...t,
-            url: URL.createObjectURL(t.file)
-          }));
-          setTracks(tracksWithUrls);
-        }
-        
-        const storedPlaylists = await get('playlists');
-        if (storedPlaylists) {
-          setPlaylists(storedPlaylists);
-        }
-
         const storedSettings = await get('settings');
         if (storedSettings) {
           if (storedSettings.crossfadeEnabled !== undefined) setCrossfadeEnabled(storedSettings.crossfadeEnabled);
@@ -152,18 +138,6 @@ export default function App() {
     };
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (isDataLoaded) {
-      set('tracks', tracks);
-    }
-  }, [tracks, isDataLoaded]);
-
-  useEffect(() => {
-    if (isDataLoaded) {
-      set('playlists', playlists);
-    }
-  }, [playlists, isDataLoaded]);
 
   useEffect(() => {
     if (isDataLoaded) {
@@ -257,6 +231,7 @@ export default function App() {
     fadeIntervals.current = [];
 
     nextAudio.src = nextTrack.url;
+    nextAudio.load();
     nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
     nextAudio.dataset.startEnforced = "false";
     const shouldPlay = isPlaying || forcePlay;
@@ -268,11 +243,9 @@ export default function App() {
 
       nextGain.gain.value = 0;
       nextAudio.src = nextTrack.url;
+      nextAudio.load();
       nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
       nextAudio.dataset.startEnforced = "false";
-      if (nextTrack.startTime) {
-        nextAudio.currentTime = nextTrack.startTime;
-      }
 
       // Start fading out current
       const clearOut = fadeAudio(currentGain, 'out', fadeMs, currentGain.gain.value, fadeCurve, () => {
@@ -303,11 +276,9 @@ export default function App() {
       currentAudio.pause();
       nextGain.gain.value = 1;
       nextAudio.src = nextTrack.url;
+      nextAudio.load();
       nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
       nextAudio.dataset.startEnforced = "false";
-      if (nextTrack.startTime) {
-        nextAudio.currentTime = nextTrack.startTime;
-      }
       if (shouldPlay) {
         const playPromise = nextAudio.play();
         if (playPromise !== undefined) {
@@ -415,7 +386,13 @@ export default function App() {
         const startTime = parseFloat(audio.dataset.startTime || "0");
         if (startTime > 0) {
           if (audio.currentTime < startTime - 0.5) {
-            audio.currentTime = startTime;
+            if (audio.readyState >= 1) {
+              try {
+                audio.currentTime = startTime;
+              } catch (e) {
+                console.error("Failed to set currentTime", e);
+              }
+            }
           } else {
             audio.dataset.startEnforced = "true";
           }
@@ -1318,11 +1295,37 @@ export default function App() {
     );
   }
 
+  const onCanPlay = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    if (audio.dataset.startEnforced !== "true" && audio.dataset.startTime) {
+      const startTime = parseFloat(audio.dataset.startTime);
+      if (startTime > 0 && audio.currentTime < startTime - 0.5) {
+        try {
+          audio.currentTime = startTime;
+        } catch (e) {
+          console.error("Failed to set currentTime on canplay", e);
+        }
+      }
+    }
+  };
+
+  const onPlaying = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    if (audio.dataset.startEnforced !== "true" && audio.dataset.startTime) {
+      const startTime = parseFloat(audio.dataset.startTime);
+      if (startTime > 0 && audio.currentTime < startTime - 0.5) {
+        try {
+          audio.currentTime = startTime;
+        } catch (e) {
+          console.error("Failed to set currentTime on playing", e);
+        }
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
-      <audio ref={audio1Ref} onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} />
-      <audio ref={audio2Ref} onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} />
+      <audio ref={audio1Ref} onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} />
+      <audio ref={audio2Ref} onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} />
       <input
         type="file"
         ref={fileInputRef}
