@@ -280,7 +280,18 @@ export default function App() {
       // Start fading in next after delay
       let clearIn: (() => void) | null = null;
       const timeoutId = setTimeout(() => {
-        nextAudio.play().catch(console.error);
+        const playPromise = nextAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            if (nextTrack.startTime) {
+              nextAudio.currentTime = nextTrack.startTime;
+            }
+          }).catch(console.error);
+        } else {
+          if (nextTrack.startTime) {
+            nextAudio.currentTime = nextTrack.startTime;
+          }
+        }
         clearIn = fadeAudio(nextGain, 'in', fadeMs, 1, fadeCurve);
         if (clearIn) fadeIntervals.current.push(clearIn);
       }, delayBeforeNextStart);
@@ -294,7 +305,20 @@ export default function App() {
       if (nextTrack.startTime) {
         nextAudio.currentTime = nextTrack.startTime;
       }
-      if (shouldPlay) nextAudio.play().catch(console.error);
+      if (shouldPlay) {
+        const playPromise = nextAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            if (nextTrack.startTime) {
+              nextAudio.currentTime = nextTrack.startTime;
+            }
+          }).catch(console.error);
+        } else {
+          if (nextTrack.startTime) {
+            nextAudio.currentTime = nextTrack.startTime;
+          }
+        }
+      }
     }
 
     activeAudioRef.current = activeAudioRef.current === 1 ? 2 : 1;
@@ -618,6 +642,21 @@ export default function App() {
       }
       return t;
     }));
+
+    // Apply immediately if it's the current track
+    const currentQueue = getActiveQueue();
+    const currentTrack = currentQueue[currentIndex];
+    if (currentTrack && currentTrack.id === trimmingTrackId) {
+      const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+      if (currentAudio) {
+        currentAudio.dataset.startTime = finalStart.toString();
+        if (finalStart > 0 && currentAudio.currentTime < finalStart) {
+          currentAudio.currentTime = finalStart;
+          setProgress(finalStart);
+        }
+      }
+    }
+
     setTrimmingTrackId(null);
   };
 
@@ -683,15 +722,6 @@ export default function App() {
             <div className="relative h-6 flex items-center group/progress" ref={playerTrackRef}>
               {/* Background Track */}
               <div className="absolute left-0 right-0 h-1.5 bg-white/10 rounded-full overflow-hidden pointer-events-none">
-                {currentTrack && (currentTrack.startTime || currentTrack.endTime) && (
-                  <div 
-                    className="absolute h-full bg-pink-500/20"
-                    style={{
-                      left: `${((currentTrack.startTime || 0) / (duration || 1)) * 100}%`,
-                      width: `${(((currentTrack.endTime || duration) - (currentTrack.startTime || 0)) / (duration || 1)) * 100}%`
-                    }}
-                  />
-                )}
                 <div 
                   className={`h-full bg-pink-500 ${isSeeking ? '' : 'transition-all duration-300'}`}
                   style={{ width: `${(progress / (duration || 1)) * 100}%` }}
