@@ -413,10 +413,15 @@ export default function App() {
       // Enforce start time once per play
       if (audio.dataset.startEnforced !== "true") {
         const startTime = parseFloat(audio.dataset.startTime || "0");
-        if (startTime > 0 && audio.currentTime < startTime - 0.5) {
-          audio.currentTime = startTime;
+        if (startTime > 0) {
+          if (audio.currentTime < startTime - 0.5) {
+            audio.currentTime = startTime;
+          } else {
+            audio.dataset.startEnforced = "true";
+          }
+        } else {
+          audio.dataset.startEnforced = "true";
         }
-        audio.dataset.startEnforced = "true";
       }
 
       if (!isSeeking) {
