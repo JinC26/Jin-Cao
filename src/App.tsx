@@ -257,6 +257,7 @@ export default function App() {
     fadeIntervals.current = [];
 
     nextAudio.src = nextTrack.url;
+    nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
     const shouldPlay = isPlaying || forcePlay;
 
     if (crossfade && shouldPlay && currentAudio.src && !currentAudio.paused) {
@@ -266,6 +267,7 @@ export default function App() {
 
       nextGain.gain.value = 0;
       nextAudio.src = nextTrack.url;
+      nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
       if (nextTrack.startTime) {
         nextAudio.currentTime = nextTrack.startTime;
       }
@@ -288,6 +290,7 @@ export default function App() {
       currentAudio.pause();
       nextGain.gain.value = 1;
       nextAudio.src = nextTrack.url;
+      nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
       if (nextTrack.startTime) {
         nextAudio.currentTime = nextTrack.startTime;
       }
@@ -360,6 +363,13 @@ export default function App() {
       }
     }
     setIsPlaying(!isPlaying);
+  };
+
+  const onLoadedMetadata = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    if (audio.dataset.startTime) {
+      const startTime = parseFloat(audio.dataset.startTime);
+      audio.currentTime = startTime;
+    }
   };
 
   const onTimeUpdate = (audioNum: 1 | 2) => {
@@ -1261,8 +1271,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
-      <audio ref={audio1Ref} onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} />
-      <audio ref={audio2Ref} onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} />
+      <audio ref={audio1Ref} onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} />
+      <audio ref={audio2Ref} onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} />
       <input
         type="file"
         ref={fileInputRef}
