@@ -258,6 +258,7 @@ export default function App() {
 
     nextAudio.src = nextTrack.url;
     nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
+    nextAudio.dataset.startEnforced = "false";
     const shouldPlay = isPlaying || forcePlay;
 
     if (crossfade && shouldPlay && currentAudio.src && !currentAudio.paused) {
@@ -268,6 +269,7 @@ export default function App() {
       nextGain.gain.value = 0;
       nextAudio.src = nextTrack.url;
       nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
+      nextAudio.dataset.startEnforced = "false";
       if (nextTrack.startTime) {
         nextAudio.currentTime = nextTrack.startTime;
       }
@@ -302,6 +304,7 @@ export default function App() {
       nextGain.gain.value = 1;
       nextAudio.src = nextTrack.url;
       nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
+      nextAudio.dataset.startEnforced = "false";
       if (nextTrack.startTime) {
         nextAudio.currentTime = nextTrack.startTime;
       }
@@ -356,8 +359,11 @@ export default function App() {
     }
 
     const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-    if (currentAudio && currentAudio.currentTime > 3) {
-      currentAudio.currentTime = 0;
+    const currentTrack = queue[currentIndex];
+    const startTime = currentTrack?.startTime || 0;
+
+    if (currentAudio && currentAudio.currentTime > startTime + 3) {
+      currentAudio.currentTime = startTime;
       return;
     }
     const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
@@ -403,6 +409,15 @@ export default function App() {
       
       const currentTrack = getActiveQueue()[currentIndex];
       if (!currentTrack) return;
+
+      // Enforce start time once per play
+      if (audio.dataset.startEnforced !== "true") {
+        const startTime = parseFloat(audio.dataset.startTime || "0");
+        if (startTime > 0 && audio.currentTime < startTime - 0.5) {
+          audio.currentTime = startTime;
+        }
+        audio.dataset.startEnforced = "true";
+      }
 
       if (!isSeeking) {
         setProgress(audio.currentTime);
@@ -721,7 +736,7 @@ export default function App() {
           <div className="w-full mb-8 shrink-0 relative px-4">
             <div className="relative h-6 flex items-center group/progress" ref={playerTrackRef}>
               {/* Background Track */}
-              <div className="absolute left-0 right-0 h-1.5 bg-white/10 rounded-full overflow-hidden pointer-events-none">
+              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1.5 bg-white/10 rounded-full overflow-hidden pointer-events-none">
                 <div 
                   className={`h-full bg-pink-500 ${isSeeking ? '' : 'transition-all duration-300'}`}
                   style={{ width: `${(progress / (duration || 1)) * 100}%` }}
@@ -730,7 +745,7 @@ export default function App() {
               
               {/* Draggable Thumb */}
               <div 
-                className="absolute top-1/2 -translate-y-1/2 z-30 cursor-grab active:cursor-grabbing"
+                className="absolute top-1/2 z-30 cursor-grab active:cursor-grabbing"
                 style={{ 
                   left: `${(progress / (duration || 1)) * 100}%`,
                   transform: 'translate(-50%, -50%)'
