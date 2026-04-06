@@ -102,6 +102,7 @@ export default function App() {
   const [trimEnd, setTrimEnd] = useState<string>('0');
   const [hasStarted, setHasStarted] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   
   const playerTrackRef = useRef<HTMLDivElement>(null);
@@ -230,10 +231,10 @@ export default function App() {
     fadeIntervals.current.forEach(clear => clear());
     fadeIntervals.current = [];
 
-    nextAudio.src = nextTrack.url;
-    nextAudio.load();
     nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
     nextAudio.dataset.startEnforced = "false";
+    nextAudio.src = nextTrack.url;
+    nextAudio.load();
     const shouldPlay = isPlaying || forcePlay;
 
     if (crossfade && shouldPlay && currentAudio.src && !currentAudio.paused) {
@@ -242,10 +243,10 @@ export default function App() {
       const delayBeforeNextStart = Math.max(0, fadeMs - overlapMs);
 
       nextGain.gain.value = 0;
-      nextAudio.src = nextTrack.url;
-      nextAudio.load();
       nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
       nextAudio.dataset.startEnforced = "false";
+      nextAudio.src = nextTrack.url;
+      nextAudio.load();
 
       // Start fading out current
       const clearOut = fadeAudio(currentGain, 'out', fadeMs, currentGain.gain.value, fadeCurve, () => {
@@ -257,15 +258,7 @@ export default function App() {
       const timeoutId = setTimeout(() => {
         const playPromise = nextAudio.play();
         if (playPromise !== undefined) {
-          playPromise.then(() => {
-            if (nextTrack.startTime) {
-              nextAudio.currentTime = nextTrack.startTime;
-            }
-          }).catch(console.error);
-        } else {
-          if (nextTrack.startTime) {
-            nextAudio.currentTime = nextTrack.startTime;
-          }
+          playPromise.catch(console.error);
         }
         clearIn = fadeAudio(nextGain, 'in', fadeMs, 1, fadeCurve);
         if (clearIn) fadeIntervals.current.push(clearIn);
@@ -275,22 +268,14 @@ export default function App() {
     } else {
       currentAudio.pause();
       nextGain.gain.value = 1;
-      nextAudio.src = nextTrack.url;
-      nextAudio.load();
       nextAudio.dataset.startTime = (nextTrack.startTime || 0).toString();
       nextAudio.dataset.startEnforced = "false";
+      nextAudio.src = nextTrack.url;
+      nextAudio.load();
       if (shouldPlay) {
         const playPromise = nextAudio.play();
         if (playPromise !== undefined) {
-          playPromise.then(() => {
-            if (nextTrack.startTime) {
-              nextAudio.currentTime = nextTrack.startTime;
-            }
-          }).catch(console.error);
-        } else {
-          if (nextTrack.startTime) {
-            nextAudio.currentTime = nextTrack.startTime;
-          }
+          playPromise.catch(console.error);
         }
       }
     }
@@ -299,6 +284,7 @@ export default function App() {
     setCurrentIndex(index);
     if (forcePlay) setIsPlaying(true);
     isCrossfading.current = false;
+    setShowPlayerMenu(false);
   };
 
   const handleNext = (auto = false) => {
@@ -366,19 +352,37 @@ export default function App() {
     setIsPlaying(!isPlaying);
   };
 
-  const onLoadedMetadata = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    if (audio.dataset.startTime) {
-      const startTime = parseFloat(audio.dataset.startTime);
-      if (startTime > 0 && audio.readyState >= 1) {
-        try {
-          // Cap at duration if available
-          const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
+  const enforceStartTime = (audio: HTMLAudioElement) => {
+    if (audio.dataset.startEnforced === "true") return;
+    const startTime = parseFloat(audio.dataset.startTime || "0");
+    if (startTime <= 0) {
+      audio.dataset.startEnforced = "true";
+      return;
+    }
+    
+    if (audio.readyState >= 1) {
+      try {
+        // Cap at duration if available and finite
+        const duration = audio.duration;
+        const targetTime = (duration > 0 && isFinite(duration)) 
+          ? Math.min(startTime, duration - 0.1) 
+          : startTime;
+        
+        // If we are far from target, seek
+        if (Math.abs(audio.currentTime - targetTime) > 0.5) {
           audio.currentTime = targetTime;
-        } catch (e) {
-          console.error("Failed to set currentTime on loadedmetadata", e);
+        } else {
+          // We are close enough, consider it enforced
+          audio.dataset.startEnforced = "true";
         }
+      } catch (e) {
+        console.error("Enforce start time failed", e);
       }
     }
+  };
+
+  const onLoadedMetadata = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    enforceStartTime(audio);
   };
 
   const onTimeUpdate = (audioNum: 1 | 2) => {
@@ -389,26 +393,9 @@ export default function App() {
       const currentTrack = getActiveQueue()[currentIndex];
       if (!currentTrack) return;
 
-      // Enforce start time once per play
-      if (audio.dataset.startEnforced !== "true") {
-        const startTime = parseFloat(audio.dataset.startTime || "0");
-        if (startTime > 0) {
-          if (audio.currentTime < startTime - 0.5) {
-            if (audio.readyState >= 1) {
-              try {
-                // Cap at duration if available
-                const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
-                audio.currentTime = targetTime;
-              } catch (e) {
-                console.error("Failed to set currentTime", e);
-              }
-            }
-          } else {
-            audio.dataset.startEnforced = "true";
-          }
-        } else {
-          audio.dataset.startEnforced = "true";
-        }
+      // Enforce start time
+      if (!isSeeking) {
+        enforceStartTime(audio);
       }
 
       if (!isSeeking) {
@@ -417,26 +404,15 @@ export default function App() {
       setDuration(audio.duration || 0);
 
       // Update track duration in state if missing
-      if (audio.duration && !currentTrack.duration) {
+      if (audio.duration && isFinite(audio.duration) && !currentTrack.duration) {
         setTracks(prev => prev.map(t => t.id === currentTrack.id ? { ...t, duration: audio.duration } : t));
       }
 
-      const effectiveEndTime = currentTrack.endTime || audio.duration;
+      const effectiveEndTime = currentTrack.endTime || (isFinite(audio.duration) ? audio.duration : 0);
       const effectiveStartTime = currentTrack.startTime || 0;
 
-      // Ensure we stay within start point
-      if (audio.currentTime < effectiveStartTime - 0.5) {
-        if (audio.readyState >= 1) {
-          try {
-            audio.currentTime = effectiveStartTime;
-          } catch (e) {
-            console.error("Failed to set currentTime in onTimeUpdate", e);
-          }
-        }
-      }
-      
       // Only trigger end-of-track logic if we have a valid duration
-      if (audio.duration > 0 && effectiveEndTime > 0) {
+      if (audio.duration > 0 && isFinite(audio.duration) && effectiveEndTime > 0) {
         if (audio.currentTime >= effectiveEndTime) {
           if (!isCrossfading.current) {
             isCrossfading.current = true;
@@ -479,10 +455,15 @@ export default function App() {
     
     const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
     if (audio) {
-      const track = getActiveQueue()[currentIndex];
-      const effectiveDuration = track?.duration || audio.duration || 0;
-      // We use the progress state which was updated in Move
-      audio.currentTime = progress;
+      if (audio.readyState >= 1) {
+        try {
+          audio.currentTime = progress;
+          // Manual seek overrides initial start point enforcement
+          audio.dataset.startEnforced = "true";
+        } catch (e) {
+          console.error("Failed to set currentTime in handleSliderPointerUp", e);
+        }
+      }
     }
   };
 
@@ -545,7 +526,7 @@ export default function App() {
     }
     if (selectedPlaylistId === playlistId) {
       setLibraryTab('playlists');
-      setView('library');
+      switchView('library');
       setSelectedPlaylistId(null);
     }
   };
@@ -710,6 +691,11 @@ export default function App() {
 
   const currentTrack = getActiveQueue()[currentIndex];
 
+  const switchView = (newView: 'player' | 'library' | 'playlist-detail') => {
+    setView(newView);
+    setShowPlayerMenu(false);
+  };
+
   const renderPlayer = () => (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden pt-4">
       {/* Main Scrollable Area (Player + Settings) */}
@@ -728,9 +714,62 @@ export default function App() {
           </div>
 
           {/* Track Info */}
-          <div className="mb-6 shrink-0 text-center w-full">
-            <h2 className="text-xl font-bold truncate px-4">{currentTrack ? currentTrack.name : 'Not Playing'}</h2>
-            <p className="text-base text-white/50 truncate px-4">{currentTrack ? currentTrack.artist : '--'}</p>
+          <div className="mb-6 shrink-0 text-center w-full relative">
+            <h2 className="text-xl font-bold truncate px-12">{currentTrack ? currentTrack.name : 'Not Playing'}</h2>
+            <p className="text-base text-white/50 truncate px-12">{currentTrack ? currentTrack.artist : '--'}</p>
+            {currentTrack && (
+              <button 
+                onClick={() => setShowPlayerMenu(!showPlayerMenu)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white/30 hover:text-white transition-colors"
+              >
+                <MoreVertical size={20} />
+              </button>
+            )}
+
+            {/* Player Menu Overlay */}
+            {showPlayerMenu && currentTrack && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowPlayerMenu(false)}
+                />
+                <div className="absolute right-4 top-full mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <button 
+                    onClick={() => {
+                      setEditingTrackId(currentTrack.id);
+                      setEditingTrackName(currentTrack.name);
+                      setShowPlayerMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors border-b border-white/5"
+                  >
+                    <Edit2 size={16} />
+                    <span>Rename Track</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setTrimmingTrackId(currentTrack.id);
+                      setTrimStart((currentTrack.startTime || 0).toString());
+                      setTrimEnd((currentTrack.endTime || 0).toString());
+                      setShowPlayerMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors border-b border-white/5"
+                  >
+                    <Settings size={16} />
+                    <span>Set Play Range</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setTaggingTrackId(currentTrack.id);
+                      setShowPlayerMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    <Tag size={16} />
+                    <span>Manage Tags</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Progress */}
@@ -831,7 +870,7 @@ export default function App() {
           <h1 className="text-lg font-bold tracking-tight">Add Tracks</h1>
           <button onClick={() => {
             setIsSelectingForPlaylist(false);
-            setView('playlist-detail');
+            switchView('playlist-detail');
           }} className="text-pink-500 font-bold text-xs uppercase tracking-widest hover:text-pink-400 transition-colors">
             Done
           </button>
@@ -986,7 +1025,7 @@ export default function App() {
             playlists.map(playlist => (
               <div key={playlist.id} className="w-full flex items-center p-3 rounded-xl hover:bg-white/5 transition-colors group">
                 <button
-                  onClick={() => { setSelectedPlaylistId(playlist.id); setView('playlist-detail'); }}
+                  onClick={() => { setSelectedPlaylistId(playlist.id); switchView('playlist-detail'); }}
                   className="flex-1 flex items-center text-left min-w-0"
                 >
                   <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center mr-4 shrink-0">
@@ -1125,7 +1164,7 @@ export default function App() {
     return (
       <div className="flex flex-col flex-1 min-h-0 pt-4">
         <div className="px-6 py-6 flex flex-col gap-2">
-          <button onClick={() => { setLibraryTab('playlists'); setView('library'); }} className="flex items-center gap-1 text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
+          <button onClick={() => { setLibraryTab('playlists'); switchView('library'); }} className="flex items-center gap-1 text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
             <ArrowLeft size={12} />
             Back to Playlists
           </button>
@@ -1241,7 +1280,7 @@ export default function App() {
 
     return (
       <div 
-        onClick={() => setView('player')}
+        onClick={() => switchView('player')}
         className="h-20 bg-zinc-900/90 backdrop-blur-xl border-t border-white/10 flex items-center px-4 gap-4 cursor-pointer shrink-0 z-50 relative"
       >
         <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
@@ -1315,42 +1354,18 @@ export default function App() {
   }
 
   const onCanPlay = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    if (audio.dataset.startEnforced !== "true" && audio.dataset.startTime) {
-      const startTime = parseFloat(audio.dataset.startTime);
-      if (startTime > 0 && audio.currentTime < startTime - 0.5) {
-        if (audio.readyState >= 1) {
-          try {
-            const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
-            audio.currentTime = targetTime;
-          } catch (e) {
-            console.error("Failed to set currentTime on canplay", e);
-          }
-        }
-      }
-    }
+    enforceStartTime(audio);
   };
 
   const onPlaying = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    if (audio.dataset.startEnforced !== "true" && audio.dataset.startTime) {
-      const startTime = parseFloat(audio.dataset.startTime);
-      if (startTime > 0 && audio.currentTime < startTime - 0.5) {
-        if (audio.readyState >= 1) {
-          try {
-            const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
-            audio.currentTime = targetTime;
-          } catch (e) {
-            console.error("Failed to set currentTime on playing", e);
-          }
-        }
-      }
-    }
+    enforceStartTime(audio);
   };
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
-      <audio ref={audio1Ref} onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} />
-      <audio ref={audio2Ref} onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} />
+      <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} />
+      <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} />
       <input
         type="file"
         ref={fileInputRef}
@@ -1389,7 +1404,7 @@ export default function App() {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => { setLibraryTab(tab.id as any); setView('library'); setIsSelectingForPlaylist(false); }}
+                        onClick={() => { setLibraryTab(tab.id as any); switchView('library'); setIsSelectingForPlaylist(false); }}
                         className="relative h-full flex items-center group"
                       >
                         <span className={`text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 ${isActive ? 'text-pink-500' : 'text-white/40 group-hover:text-white/60'}`}>
@@ -1425,7 +1440,7 @@ export default function App() {
                   onClick={() => {
                     if (view === 'playlist-detail') {
                       setLibraryTab('tracks');
-                      setView('library');
+                      switchView('library');
                       setIsSelectingForPlaylist(true);
                     } else if (view === 'library' && libraryTab === 'tracks') {
                       fileInputRef.current?.click();
