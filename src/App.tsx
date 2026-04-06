@@ -369,7 +369,15 @@ export default function App() {
   const onLoadedMetadata = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
     if (audio.dataset.startTime) {
       const startTime = parseFloat(audio.dataset.startTime);
-      audio.currentTime = startTime;
+      if (startTime > 0 && audio.readyState >= 1) {
+        try {
+          // Cap at duration if available
+          const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
+          audio.currentTime = targetTime;
+        } catch (e) {
+          console.error("Failed to set currentTime on loadedmetadata", e);
+        }
+      }
     }
   };
 
@@ -388,7 +396,9 @@ export default function App() {
           if (audio.currentTime < startTime - 0.5) {
             if (audio.readyState >= 1) {
               try {
-                audio.currentTime = startTime;
+                // Cap at duration if available
+                const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
+                audio.currentTime = targetTime;
               } catch (e) {
                 console.error("Failed to set currentTime", e);
               }
@@ -416,18 +426,27 @@ export default function App() {
 
       // Ensure we stay within start point
       if (audio.currentTime < effectiveStartTime - 0.5) {
-        audio.currentTime = effectiveStartTime;
+        if (audio.readyState >= 1) {
+          try {
+            audio.currentTime = effectiveStartTime;
+          } catch (e) {
+            console.error("Failed to set currentTime in onTimeUpdate", e);
+          }
+        }
       }
       
-      if (effectiveEndTime && audio.currentTime >= effectiveEndTime) {
-        if (!isCrossfading.current) {
-          isCrossfading.current = true;
-          handleNext(true);
-        }
-      } else if (crossfadeEnabled && effectiveEndTime && audio.currentTime >= effectiveEndTime - crossfadeDuration) {
-        if (!isCrossfading.current) {
-          isCrossfading.current = true;
-          handleNext(true);
+      // Only trigger end-of-track logic if we have a valid duration
+      if (audio.duration > 0 && effectiveEndTime > 0) {
+        if (audio.currentTime >= effectiveEndTime) {
+          if (!isCrossfading.current) {
+            isCrossfading.current = true;
+            handleNext(true);
+          }
+        } else if (crossfadeEnabled && audio.currentTime >= effectiveEndTime - crossfadeDuration) {
+          if (!isCrossfading.current) {
+            isCrossfading.current = true;
+            handleNext(true);
+          }
         }
       }
     }
@@ -1299,10 +1318,13 @@ export default function App() {
     if (audio.dataset.startEnforced !== "true" && audio.dataset.startTime) {
       const startTime = parseFloat(audio.dataset.startTime);
       if (startTime > 0 && audio.currentTime < startTime - 0.5) {
-        try {
-          audio.currentTime = startTime;
-        } catch (e) {
-          console.error("Failed to set currentTime on canplay", e);
+        if (audio.readyState >= 1) {
+          try {
+            const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
+            audio.currentTime = targetTime;
+          } catch (e) {
+            console.error("Failed to set currentTime on canplay", e);
+          }
         }
       }
     }
@@ -1312,10 +1334,13 @@ export default function App() {
     if (audio.dataset.startEnforced !== "true" && audio.dataset.startTime) {
       const startTime = parseFloat(audio.dataset.startTime);
       if (startTime > 0 && audio.currentTime < startTime - 0.5) {
-        try {
-          audio.currentTime = startTime;
-        } catch (e) {
-          console.error("Failed to set currentTime on playing", e);
+        if (audio.readyState >= 1) {
+          try {
+            const targetTime = audio.duration > 0 ? Math.min(startTime, audio.duration - 0.1) : startTime;
+            audio.currentTime = targetTime;
+          } catch (e) {
+            console.error("Failed to set currentTime on playing", e);
+          }
         }
       }
     }
