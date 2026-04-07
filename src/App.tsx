@@ -360,16 +360,24 @@ export default function App() {
       return;
     }
     
+    // We need at least HAVE_METADATA (1) to know duration, 
+    // but HAVE_CURRENT_DATA (2) is safer for seeking on some devices.
     if (audio.readyState >= 1) {
       try {
-        // Cap at duration if available and finite
         const duration = audio.duration;
-        const targetTime = (duration > 0 && isFinite(duration)) 
+        
+        // If duration is NaN or 0, we can't seek safely yet.
+        if (isNaN(duration) || duration <= 0) return;
+
+        // Cap at duration if finite
+        const targetTime = isFinite(duration) 
           ? Math.min(startTime, duration - 0.1) 
           : startTime;
         
         // If we are far from target, seek
         if (Math.abs(audio.currentTime - targetTime) > 0.5) {
+          // On some iPad versions, seeking too early can stall playback.
+          // We only seek if we have metadata and the duration is known.
           audio.currentTime = targetTime;
         } else {
           // We are close enough, consider it enforced
@@ -377,6 +385,7 @@ export default function App() {
         }
       } catch (e) {
         console.error("Enforce start time failed", e);
+        // If it fails, we don't mark as enforced so it can retry on next event
       }
     }
   };
