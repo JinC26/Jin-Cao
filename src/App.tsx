@@ -442,6 +442,16 @@ export default function App() {
     playTrack(prevIndex, crossfadeEnabled, false, activePlaylistId);
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const audio1 = audio1Ref.current;
+      const audio2 = audio2Ref.current;
+      if (audio1) enforceStartTime(audio1);
+      if (audio2) enforceStartTime(audio2);
+    }, 250);
+    return () => clearInterval(interval);
+  }, [isPlaying, isSeeking]);
+
   const togglePlay = () => {
     initAudioContext();
     const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
@@ -476,39 +486,59 @@ export default function App() {
   };
 
   const enforceStartTime = (audio: HTMLAudioElement) => {
-    if (audio.dataset.startEnforced === "true") return;
+    if (isSeeking) return;
+    
     const startTime = parseFloat(audio.dataset.startTime || "0");
     if (startTime <= 0) {
       audio.dataset.startEnforced = "true";
+      if (audio.muted && audio.dataset.manualMute !== "true") audio.muted = false;
       return;
     }
-    
-    // On iOS, readyState 2 (HAVE_CURRENT_DATA) is usually enough to seek.
-    // However, sometimes we need to try even at 1 (HAVE_METADATA) if we are playing.
-    if (audio.readyState >= 2 || (audio.readyState >= 1 && !audio.paused)) {
-      try {
-        const duration = audio.duration;
-        
-        // If duration is NaN or 0, we can't seek safely yet.
-        if (isNaN(duration) || duration <= 0) return;
 
-        // Cap at duration if finite
-        const targetTime = isFinite(duration) 
-          ? Math.max(0, Math.min(startTime, duration - 0.01)) 
-          : startTime;
-        
-        // If we are far from target, seek
-        if (Math.abs(audio.currentTime - targetTime) > 0.05) {
-          audio.currentTime = targetTime;
-          // Don't set startEnforced to true yet, wait for next update to verify seek stuck
-        } else {
-          // We are close enough, consider it enforced
-          audio.dataset.startEnforced = "true";
-        }
-      } catch (e) {
-        console.error("Enforce start time failed", e);
+    // We need at least HAVE_METADATA (1) to know duration
+    if (audio.readyState < 1) return;
+
+    const duration = audio.duration;
+    if (isNaN(duration) || duration <= 0) return;
+
+    const targetTime = Math.max(0, Math.min(startTime, duration - 0.05));
+    const current = audio.currentTime;
+    const diff = Math.abs(current - targetTime);
+
+    // If already enforced, we only re-enforce if it's a major jump back to 0 (common iPad bug)
+    if (audio.dataset.startEnforced === "true") {
+      if (current < targetTime - 1 && !audio.paused && !audio.seeking) {
+        audio.dataset.startEnforced = "false";
+      } else {
+        // Ensure we are unmuted if we are at the target
+        if (audio.muted && audio.dataset.manualMute !== "true") audio.muted = false;
+        return;
       }
     }
+
+    // If we are far from target, seek and keep muted
+    if (diff > 0.1) {
+      // Mute the element itself to hide the "beginning" glitch
+      audio.muted = true;
+      
+      if (!audio.seeking) {
+        try {
+          // On iOS, sometimes setting currentTime fails if not playing
+          // We try anyway, but we'll retry on next event
+          audio.currentTime = targetTime;
+        } catch (e) {
+          console.error("Seek failed", e);
+        }
+      }
+    } else {
+      // We are at the target!
+      audio.dataset.startEnforced = "true";
+      if (audio.dataset.manualMute !== "true") audio.muted = false;
+    }
+  };
+
+  const onSeeked = (audio: HTMLAudioElement) => {
+    enforceStartTime(audio);
   };
 
   const onCanPlayThrough = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
@@ -1621,8 +1651,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
-      <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onLoadedData={(e) => onLoadedData(1, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} onPlay={(e) => onPlay(1, e.currentTarget)} />
-      <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onLoadedData={(e) => onLoadedData(2, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} onPlay={(e) => onPlay(2, e.currentTarget)} />
+      <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onLoadedData={(e) => onLoadedData(1, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} onPlay={(e) => onPlay(1, e.currentTarget)} onSeeked={(e) => onSeeked(e.currentTarget)} />
+      <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onLoadedData={(e) => onLoadedData(2, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} onPlay={(e) => onPlay(2, e.currentTarget)} onSeeked={(e) => onSeeked(e.currentTarget)} />
       <input
         type="file"
         ref={fileInputRef}
