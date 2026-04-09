@@ -130,6 +130,7 @@ export default function App() {
       try {
         const storedSettings = await get('settings');
         let initialIndex = 0;
+        let initialPlaylistId = null;
         if (storedSettings) {
           if (storedSettings.crossfadeEnabled !== undefined) setCrossfadeEnabled(storedSettings.crossfadeEnabled);
           if (storedSettings.crossfadeDuration !== undefined) setCrossfadeDuration(storedSettings.crossfadeDuration);
@@ -137,6 +138,7 @@ export default function App() {
           if (storedSettings.fadeCurve !== undefined) setFadeCurve(storedSettings.fadeCurve);
           if (storedSettings.playMode !== undefined) setPlayMode(storedSettings.playMode);
           if (storedSettings.currentIndex !== undefined) initialIndex = storedSettings.currentIndex;
+          if (storedSettings.activePlaylistId !== undefined) initialPlaylistId = storedSettings.activePlaylistId;
         }
 
         const storedTracks = await get('tracks');
@@ -178,19 +180,36 @@ export default function App() {
           setPlaylists(storedPlaylists);
         }
 
+        if (initialPlaylistId) setActivePlaylistId(initialPlaylistId);
+
         // Initialize track if available
         if (loadedTracks.length > 0) {
-          const validIndex = initialIndex < loadedTracks.length ? initialIndex : 0;
-          setCurrentIndex(validIndex);
-          setTimeout(() => {
-            const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-            const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
-            if (currentAudio && loadedTracks[validIndex].url) {
-              currentAudio.src = loadedTracks[validIndex].url;
-              if (currentGain) currentGain.gain.value = 1;
-              currentAudio.load(); // Explicitly load to trigger metadata fetching
+          let queue = loadedTracks;
+          if (initialPlaylistId) {
+            const pl = storedPlaylists?.find((p: any) => p.id === initialPlaylistId);
+            if (pl) {
+              queue = pl.trackIds.map((id: string) => loadedTracks.find(t => t.id === id)).filter(Boolean);
             }
-          }, 0);
+          }
+
+          const validIndex = initialIndex < queue.length ? initialIndex : 0;
+          const initialTrack = queue[validIndex];
+          
+          setCurrentIndex(validIndex);
+          
+          if (initialTrack) {
+            setTimeout(() => {
+              const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+              const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
+              if (currentAudio && initialTrack.url) {
+                currentAudio.dataset.startTime = (initialTrack.startTime || 0).toString();
+                currentAudio.dataset.startEnforced = "false";
+                currentAudio.src = initialTrack.url;
+                if (currentGain) currentGain.gain.value = 1;
+                currentAudio.load(); // Explicitly load to trigger metadata fetching
+              }
+            }, 0);
+          }
         }
       } catch (e) {
         console.error("Failed to load data from IndexedDB", e);
@@ -209,10 +228,11 @@ export default function App() {
         overlapDuration,
         fadeCurve,
         playMode,
-        currentIndex
+        currentIndex,
+        activePlaylistId
       });
     }
-  }, [crossfadeEnabled, crossfadeDuration, overlapDuration, fadeCurve, playMode, currentIndex, isDataLoaded]);
+  }, [crossfadeEnabled, crossfadeDuration, overlapDuration, fadeCurve, playMode, currentIndex, activePlaylistId, isDataLoaded]);
 
   useEffect(() => {
     if (isDataLoaded) {
