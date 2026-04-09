@@ -208,7 +208,7 @@ export default function App() {
                 if (currentGain) currentGain.gain.value = 1;
                 currentAudio.load(); // Explicitly load to trigger metadata fetching
               }
-            }, 0);
+            }, 100);
           }
         }
       } catch (e) {
@@ -357,6 +357,10 @@ export default function App() {
           playPromise.then(() => {
             // Force seek after play starts for iOS
             enforceStartTime(nextAudio);
+            setTimeout(() => enforceStartTime(nextAudio), 50);
+            setTimeout(() => enforceStartTime(nextAudio), 200);
+            setTimeout(() => enforceStartTime(nextAudio), 500);
+            setTimeout(() => enforceStartTime(nextAudio), 1000);
           }).catch(console.error);
         }
         clearIn = fadeAudio(nextGain, 'in', fadeMs, 1, fadeCurve);
@@ -377,6 +381,10 @@ export default function App() {
           playPromise.then(() => {
             // Force seek after play starts for iOS
             enforceStartTime(nextAudio);
+            setTimeout(() => enforceStartTime(nextAudio), 50);
+            setTimeout(() => enforceStartTime(nextAudio), 200);
+            setTimeout(() => enforceStartTime(nextAudio), 500);
+            setTimeout(() => enforceStartTime(nextAudio), 1000);
           }).catch(console.error);
         }
       }
@@ -385,7 +393,12 @@ export default function App() {
     activeAudioRef.current = activeAudioRef.current === 1 ? 2 : 1;
     setCurrentIndex(index);
     if (forcePlay) setIsPlaying(true);
-    isCrossfading.current = false;
+    
+    // Reset crossfading flag after a short delay to ensure the transition has stabilized
+    setTimeout(() => {
+      isCrossfading.current = false;
+    }, 500);
+    
     setShowPlayerMenu(false);
   };
 
@@ -448,7 +461,15 @@ export default function App() {
       }
       if (currentAudio && currentGain) {
         currentGain.gain.value = 1;
-        currentAudio.play().catch(console.error);
+        currentAudio.play().then(() => {
+          // Aggressive enforcement for iPad after user gesture
+          enforceStartTime(currentAudio);
+          // Multiple retries to fight iPad's tendency to reset playhead to 0
+          setTimeout(() => enforceStartTime(currentAudio), 50);
+          setTimeout(() => enforceStartTime(currentAudio), 200);
+          setTimeout(() => enforceStartTime(currentAudio), 500);
+          setTimeout(() => enforceStartTime(currentAudio), 1000);
+        }).catch(console.error);
       }
     }
     setIsPlaying(!isPlaying);
@@ -463,7 +484,8 @@ export default function App() {
     }
     
     // On iOS, readyState 2 (HAVE_CURRENT_DATA) is usually enough to seek.
-    if (audio.readyState >= 2) {
+    // However, sometimes we need to try even at 1 (HAVE_METADATA) if we are playing.
+    if (audio.readyState >= 2 || (audio.readyState >= 1 && !audio.paused)) {
       try {
         const duration = audio.duration;
         
@@ -472,11 +494,11 @@ export default function App() {
 
         // Cap at duration if finite
         const targetTime = isFinite(duration) 
-          ? Math.max(0, Math.min(startTime, duration - 0.1)) 
+          ? Math.max(0, Math.min(startTime, duration - 0.01)) 
           : startTime;
         
         // If we are far from target, seek
-        if (Math.abs(audio.currentTime - targetTime) > 0.3) {
+        if (Math.abs(audio.currentTime - targetTime) > 0.05) {
           audio.currentTime = targetTime;
           // Don't set startEnforced to true yet, wait for next update to verify seek stuck
         } else {
@@ -489,22 +511,31 @@ export default function App() {
     }
   };
 
+  const onCanPlayThrough = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    enforceStartTime(audio);
+  };
+
+  const onLoadedData = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    enforceStartTime(audio);
+  };
+
   const onLoadedMetadata = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
     enforceStartTime(audio);
   };
 
   const onTimeUpdate = (audioNum: 1 | 2) => {
+    const audio = audioNum === 1 ? audio1Ref.current : audio2Ref.current;
+    if (!audio) return;
+
+    // Always enforce start time if needed, regardless of "active" status
+    // This helps during crossfades where the next audio is loading/playing
+    if (!isSeeking) {
+      enforceStartTime(audio);
+    }
+
     if (audioNum === activeAudioRef.current) {
-      const audio = audioNum === 1 ? audio1Ref.current : audio2Ref.current;
-      if (!audio) return;
-      
       const currentTrack = getActiveQueue()[currentIndex];
       if (!currentTrack) return;
-
-      // Enforce start time
-      if (!isSeeking) {
-        enforceStartTime(audio);
-      }
 
       if (!isSeeking) {
         setProgress(audio.currentTime);
@@ -521,12 +552,15 @@ export default function App() {
 
       // Only trigger end-of-track logic if we have a valid duration
       if (audio.duration > 0 && isFinite(audio.duration) && effectiveEndTime > 0) {
-        if (audio.currentTime >= effectiveEndTime) {
+        // Don't trigger if we just started (to avoid immediate crossfade on short tracks or tight ranges)
+        const timeSinceStart = audio.currentTime - effectiveStartTime;
+        
+        if (audio.currentTime >= effectiveEndTime - 0.2) {
           if (!isCrossfading.current) {
             isCrossfading.current = true;
             handleNext(true);
           }
-        } else if (crossfadeEnabled && audio.currentTime >= effectiveEndTime - crossfadeDuration) {
+        } else if (crossfadeEnabled && timeSinceStart > 1 && audio.currentTime >= effectiveEndTime - crossfadeDuration) {
           if (!isCrossfading.current) {
             isCrossfading.current = true;
             handleNext(true);
@@ -832,9 +866,15 @@ export default function App() {
       const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
       if (currentAudio) {
         currentAudio.dataset.startTime = finalStart.toString();
-        if (finalStart > 0 && currentAudio.currentTime < finalStart) {
+        currentAudio.dataset.startEnforced = "false";
+        
+        // Force seek if we are outside the new range
+        if (currentAudio.currentTime < finalStart || (finalEnd > 0 && currentAudio.currentTime > finalEnd)) {
           currentAudio.currentTime = finalStart;
           setProgress(finalStart);
+        } else {
+          // Even if we are inside, we might want to re-enforce if the start changed
+          enforceStartTime(currentAudio);
         }
       }
     }
@@ -1581,8 +1621,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
-      <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} onPlay={(e) => onPlay(1, e.currentTarget)} />
-      <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} onPlay={(e) => onPlay(2, e.currentTarget)} />
+      <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onLoadedData={(e) => onLoadedData(1, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} onPlay={(e) => onPlay(1, e.currentTarget)} />
+      <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onLoadedData={(e) => onLoadedData(2, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} onPlay={(e) => onPlay(2, e.currentTarget)} />
       <input
         type="file"
         ref={fileInputRef}
@@ -1807,9 +1847,16 @@ export default function App() {
             <p className="text-[10px] text-white/50 mb-6 leading-relaxed">
               Set the start and end points in seconds. Leave as 0 to play from the beginning or until the end.
               {tracks.find(t => t.id === trimmingTrackId)?.duration ? (
-                <span className="block mt-1 text-pink-500 font-bold">
-                  Track Duration: {formatTime(tracks.find(t => t.id === trimmingTrackId)!.duration!)} ({tracks.find(t => t.id === trimmingTrackId)!.duration!.toFixed(2)}s)
-                </span>
+                <div className="space-y-1 mt-1">
+                  <span className="block text-pink-500 font-bold">
+                    Track Duration: {formatTime(tracks.find(t => t.id === trimmingTrackId)!.duration!)} ({tracks.find(t => t.id === trimmingTrackId)!.duration!.toFixed(2)}s)
+                  </span>
+                  {isPlaying && getActiveQueue()[currentIndex]?.id === trimmingTrackId && (
+                    <span className="block text-white/70 font-mono text-[9px]">
+                      Current Progress: {progress.toFixed(2)}s
+                    </span>
+                  )}
+                </div>
               ) : (
                 <span className="block mt-1 text-white/30 italic">
                   Loading track duration...
