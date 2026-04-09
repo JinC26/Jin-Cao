@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { get, set, del, clear } from 'idb-keyval';
-import { motion, AnimatePresence, Reorder } from 'motion/react';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
 import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, Music, Repeat, FolderHeart, ArrowLeft, MoreVertical, Trash2, X, Check, Shuffle, Settings, Tag, GripVertical, Edit2 } from 'lucide-react';
 
 interface Track {
@@ -27,6 +27,284 @@ interface Playlist {
   name: string;
   trackIds: string[];
 }
+
+const ReorderableTrackItem = ({ 
+  track, 
+  index, 
+  currentIndex, 
+  activePlaylistId, 
+  isSelectingForPlaylist, 
+  selectedPlaylistId, 
+  playlists, 
+  isPlaying, 
+  showAddToPlaylist, 
+  setShowAddToPlaylist, 
+  addToPlaylist, 
+  removeFromPlaylist, 
+  handleSelectTrack, 
+  setTaggingTrackId, 
+  setEditingTrackId, 
+  setEditingTrackName, 
+  setTrimmingTrackId, 
+  setTrimStart, 
+  setTrimEnd, 
+  deleteTrack 
+}: any) => {
+  const controls = useDragControls();
+  const isSelected = isSelectingForPlaylist && selectedPlaylistId && playlists.find((p: any) => p.id === selectedPlaylistId)?.trackIds.includes(track.id);
+
+  return (
+    <Reorder.Item 
+      value={track} 
+      className="relative"
+      dragListener={false}
+      dragControls={controls}
+    >
+      <div className={`w-full flex items-center text-left p-3 rounded-xl transition-colors ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+        {!isSelectingForPlaylist && (
+          <div 
+            className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0 touch-none"
+            onPointerDown={(e) => controls.start(e)}
+          >
+            <GripVertical size={16} />
+          </div>
+        )}
+        <button 
+          onClick={() => {
+            if (isSelectingForPlaylist && selectedPlaylistId) {
+              if (isSelected) {
+                removeFromPlaylist(selectedPlaylistId, track.id);
+              } else {
+                addToPlaylist(selectedPlaylistId, track.id);
+              }
+            } else {
+              handleSelectTrack(index, null);
+            }
+          }} 
+          className="flex-1 flex items-center min-w-0"
+        >
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-4 shrink-0 ${isSelected ? 'bg-pink-500 text-white' : 'bg-white/10 text-white/50'}`}>
+            {isSelectingForPlaylist ? (
+              isSelected ? <Check size={20} /> : <Plus size={20} />
+            ) : index === currentIndex && activePlaylistId === null && isPlaying ? (
+              <div className="flex gap-0.5 items-end h-4">
+                <div className="w-1 bg-pink-500 animate-eq h-full" />
+                <div className="w-1 bg-pink-500 animate-eq-delay-1 h-2/3" />
+                <div className="w-1 bg-pink-500 animate-eq-delay-2 h-4/5" />
+              </div>
+            ) : (
+              <Music size={20} className={isSelected ? "text-white" : "text-white/50"} />
+            )}
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className={`truncate text-sm font-medium ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-pink-500' : 'text-white'}`}>
+              {track.name}
+              {track.isCorrupted && <span className="ml-2 text-[10px] text-red-500 font-bold uppercase tracking-tighter">! Missing Data</span>}
+            </p>
+            <div className="flex items-center gap-2 overflow-hidden">
+              <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
+              {track.tags && track.tags.length > 0 && (
+                <div className="flex gap-1 overflow-hidden">
+                  {track.tags.map((tag: string) => (
+                    <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </button>
+        {!isSelectingForPlaylist && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
+            className="p-2 text-white/50 hover:text-white transition-colors ml-2 more-button"
+          >
+            <MoreVertical size={20} />
+          </button>
+        )}
+      </div>
+      
+      {showAddToPlaylist === track.id && (
+        <div className="absolute right-12 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
+          <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
+            Add to Playlist
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {playlists.length === 0 ? (
+              <div className="px-3 py-4 text-xs text-white/50 text-center">No playlists</div>
+            ) : (
+              playlists.map((p: any) => (
+                <button 
+                  key={p.id}
+                  onClick={() => addToPlaylist(p.id, track.id)}
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors truncate"
+                >
+                  {p.name}
+                </button>
+              ))
+            )}
+          </div>
+          <button 
+            onClick={() => { setTaggingTrackId(track.id); setShowAddToPlaylist(null); }}
+            className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+          >
+            <Tag size={12} />
+            Manage Tags
+          </button>
+          <button 
+            onClick={() => { setEditingTrackId(track.id); setEditingTrackName(track.name); setShowAddToPlaylist(null); }}
+            className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+          >
+            <Edit2 size={12} />
+            Edit Name
+          </button>
+          <button 
+            onClick={() => { 
+              setTrimmingTrackId(track.id); 
+              setTrimStart((track.startTime || 0).toString());
+              setTrimEnd((track.endTime || 0).toString());
+              setShowAddToPlaylist(null); 
+            }}
+            className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+          >
+            <Settings size={12} />
+            Set Play Range
+          </button>
+          <button 
+            onClick={() => {
+              deleteTrack(track.id);
+              setShowAddToPlaylist(null);
+            }}
+            className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/20 transition-colors border-t border-white/10 flex items-center gap-2"
+          >
+            <Trash2 size={12} />
+            Delete Track
+          </button>
+        </div>
+      )}
+    </Reorder.Item>
+  );
+};
+
+const ReorderablePlaylistTrackItem = ({ 
+  track, 
+  index, 
+  currentIndex, 
+  activePlaylistId, 
+  playlist, 
+  isPlaying, 
+  showAddToPlaylist, 
+  setShowAddToPlaylist, 
+  handleSelectTrack, 
+  setTaggingTrackId, 
+  setEditingTrackId, 
+  setEditingTrackName, 
+  setTrimmingTrackId, 
+  setTrimStart, 
+  setTrimEnd, 
+  removeFromPlaylist 
+}: any) => {
+  const controls = useDragControls();
+  
+  return (
+    <Reorder.Item 
+      value={track} 
+      className={`w-full flex items-center p-3 rounded-xl transition-colors group ${index === currentIndex && activePlaylistId === playlist.id ? 'bg-white/10' : 'hover:bg-white/5'}`}
+      dragListener={false}
+      dragControls={controls}
+    >
+      <div 
+        className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0 touch-none"
+        onPointerDown={(e) => controls.start(e)}
+      >
+        <GripVertical size={16} />
+      </div>
+      <button
+        onClick={() => handleSelectTrack(index, playlist.id)}
+        className="flex-1 flex items-center text-left min-w-0"
+      >
+        <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center mr-4 shrink-0">
+          {index === currentIndex && activePlaylistId === playlist.id && isPlaying ? (
+            <div className="flex gap-0.5 items-end h-4">
+              <div className="w-1 bg-pink-500 animate-eq h-full" />
+              <div className="w-1 bg-pink-500 animate-eq-delay-1 h-2/3" />
+              <div className="w-1 bg-pink-500 animate-eq-delay-2 h-4/5" />
+            </div>
+          ) : (
+            <Music size={20} className="text-white/50" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className={`truncate text-sm font-medium ${index === currentIndex && activePlaylistId === playlist.id ? 'text-pink-500' : 'text-white'}`}>
+            {track.name}
+          </p>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
+            {track.tags && track.tags.length > 0 && (
+              <div className="flex gap-1 overflow-hidden">
+                {track.tags.map((tag: string) => (
+                  <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </button>
+      <div className="relative flex items-center ml-2">
+        <button 
+          onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
+          className="p-2 text-white/30 hover:text-white transition-colors more-button"
+        >
+          <MoreVertical size={18} />
+        </button>
+        
+        {showAddToPlaylist === track.id && (
+          <div className="absolute right-0 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
+            <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
+              Track Options
+            </div>
+            <button 
+              onClick={() => { setTaggingTrackId(track.id); setShowAddToPlaylist(null); }}
+              className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors flex items-center gap-2"
+            >
+              <Tag size={12} />
+              Manage Tags
+            </button>
+            <button 
+              onClick={() => { setEditingTrackId(track.id); setEditingTrackName(track.name); setShowAddToPlaylist(null); }}
+              className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+            >
+              <Edit2 size={12} />
+              Edit Name
+            </button>
+            <button 
+              onClick={() => { 
+                setTrimmingTrackId(track.id); 
+                setTrimStart((track.startTime || 0).toString());
+                setTrimEnd((track.endTime || 0).toString());
+                setShowAddToPlaylist(null); 
+              }}
+              className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+            >
+              <Settings size={12} />
+              Set Play Range
+            </button>
+            <button 
+              onClick={() => { removeFromPlaylist(playlist.id, track.id); setShowAddToPlaylist(null); }}
+              className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
+            >
+              <X size={12} />
+              Remove from Playlist
+            </button>
+          </div>
+        )}
+      </div>
+    </Reorder.Item>
+  );
+};
 
 type FadeCurve = 'linear' | 'equal-power' | 'quadratic';
 
@@ -397,6 +675,9 @@ export default function App() {
     // Reset crossfading flag after a short delay to ensure the transition has stabilized
     setTimeout(() => {
       isCrossfading.current = false;
+      // Final enforcement check after transition
+      const audio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+      if (audio) enforceStartTime(audio, true);
     }, 500);
     
     setShowPlayerMenu(false);
@@ -485,7 +766,7 @@ export default function App() {
     setIsPlaying(!isPlaying);
   };
 
-  const enforceStartTime = (audio: HTMLAudioElement) => {
+  const enforceStartTime = (audio: HTMLAudioElement, force = false) => {
     if (isSeeking) return;
     
     const startTime = parseFloat(audio.dataset.startTime || "0");
@@ -501,13 +782,17 @@ export default function App() {
     const duration = audio.duration;
     if (isNaN(duration) || duration <= 0) return;
 
-    const targetTime = Math.max(0, Math.min(startTime, duration - 0.05));
+    // Handle Infinity duration (common for some FLAC/streams)
+    const targetTime = isFinite(duration) 
+      ? Math.max(0, Math.min(startTime, duration - 0.05)) 
+      : startTime;
+      
     const current = audio.currentTime;
     const diff = Math.abs(current - targetTime);
 
     // If already enforced, we only re-enforce if it's a major jump back to 0 (common iPad bug)
-    if (audio.dataset.startEnforced === "true") {
-      if (current < targetTime - 1 && !audio.paused && !audio.seeking) {
+    if (audio.dataset.startEnforced === "true" && !force) {
+      if (current < targetTime - 0.5 && !audio.paused && !audio.seeking) {
         audio.dataset.startEnforced = "false";
       } else {
         // Ensure we are unmuted if we are at the target
@@ -517,15 +802,21 @@ export default function App() {
     }
 
     // If we are far from target, seek and keep muted
-    if (diff > 0.1) {
+    if (diff > 0.1 || force) {
       // Mute the element itself to hide the "beginning" glitch
       audio.muted = true;
       
       if (!audio.seeking) {
         try {
-          // On iOS, sometimes setting currentTime fails if not playing
-          // We try anyway, but we'll retry on next event
+          // On iOS/Capacitor, setting currentTime can be ignored if not in a specific state
+          // We set it multiple times to ensure it sticks
           audio.currentTime = targetTime;
+          
+          // If force is true, we are extra aggressive
+          if (force) {
+            setTimeout(() => { if (audio) audio.currentTime = targetTime; }, 10);
+            setTimeout(() => { if (audio) audio.currentTime = targetTime; }, 50);
+          }
         } catch (e) {
           console.error("Seek failed", e);
         }
@@ -542,15 +833,33 @@ export default function App() {
   };
 
   const onCanPlayThrough = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    enforceStartTime(audio);
+    enforceStartTime(audio, true);
+    setTimeout(() => enforceStartTime(audio, true), 100);
   };
 
   const onLoadedData = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    enforceStartTime(audio);
+    enforceStartTime(audio, true);
+    setTimeout(() => enforceStartTime(audio, true), 100);
   };
 
   const onLoadedMetadata = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    enforceStartTime(audio);
+    enforceStartTime(audio, true);
+    setTimeout(() => enforceStartTime(audio, true), 100);
+  };
+
+  const onPlaying = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    enforceStartTime(audio, true);
+    setTimeout(() => enforceStartTime(audio, true), 100);
+  };
+
+  const onCanPlay = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    enforceStartTime(audio, true);
+    setTimeout(() => enforceStartTime(audio, true), 100);
+  };
+
+  const onPlay = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    enforceStartTime(audio, true);
+    setTimeout(() => enforceStartTime(audio, true), 100);
   };
 
   const onTimeUpdate = (audioNum: 1 | 2) => {
@@ -1142,134 +1451,32 @@ export default function App() {
             </div>
           ) : (
             <Reorder.Group axis="y" values={tracks} onReorder={handleReorderTracks} className="space-y-2">
-              {tracks.map((track, index) => {
-              const isSelected = isSelectingForPlaylist && selectedPlaylistId && playlists.find(p => p.id === selectedPlaylistId)?.trackIds.includes(track.id);
-              return (
-                <Reorder.Item key={track.id} value={track} className="relative">
-                  <div className={`w-full flex items-center text-left p-3 rounded-xl transition-colors ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-                    {!isSelectingForPlaylist && (
-                      <div className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0">
-                        <GripVertical size={16} />
-                      </div>
-                    )}
-                    <button 
-                    onClick={() => {
-                      if (isSelectingForPlaylist && selectedPlaylistId) {
-                        if (isSelected) {
-                          removeFromPlaylist(selectedPlaylistId, track.id);
-                        } else {
-                          addToPlaylist(selectedPlaylistId, track.id);
-                        }
-                      } else {
-                        handleSelectTrack(index, null);
-                      }
-                    }} 
-                    className="flex-1 flex items-center min-w-0"
-                  >
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-4 shrink-0 ${isSelected ? 'bg-pink-500 text-white' : 'bg-white/10 text-white/50'}`}>
-                      {isSelectingForPlaylist ? (
-                        isSelected ? <Check size={20} /> : <Plus size={20} />
-                      ) : index === currentIndex && activePlaylistId === null && isPlaying ? (
-                        <div className="flex gap-0.5 items-end h-4">
-                          <div className="w-1 bg-pink-500 animate-eq h-full" />
-                          <div className="w-1 bg-pink-500 animate-eq-delay-1 h-2/3" />
-                          <div className="w-1 bg-pink-500 animate-eq-delay-2 h-4/5" />
-                        </div>
-                      ) : (
-                        <Music size={20} className={isSelected ? "text-white" : "text-white/50"} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 text-left">
-                      <p className={`truncate text-sm font-medium ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-pink-500' : 'text-white'}`}>
-                        {track.name}
-                        {track.isCorrupted && <span className="ml-2 text-[10px] text-red-500 font-bold uppercase tracking-tighter">! Missing Data</span>}
-                      </p>
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
-                        {track.tags && track.tags.length > 0 && (
-                          <div className="flex gap-1 overflow-hidden">
-                            {track.tags.map(tag => (
-                              <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                  {!isSelectingForPlaylist && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
-                      className="p-2 text-white/50 hover:text-white transition-colors ml-2 more-button"
-                    >
-                      <MoreVertical size={20} />
-                    </button>
-                  )}
-                </div>
-                
-                {showAddToPlaylist === track.id && (
-                  <div className="absolute right-12 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
-                    <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
-                      Add to Playlist
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {playlists.length === 0 ? (
-                        <div className="px-3 py-4 text-xs text-white/50 text-center">No playlists</div>
-                      ) : (
-                        playlists.map(p => (
-                          <button 
-                            key={p.id}
-                            onClick={() => addToPlaylist(p.id, track.id)}
-                            className="w-full text-left px-3 py-2 text-xs hover:bg-white/10 transition-colors truncate"
-                          >
-                            {p.name}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                    <button 
-                      onClick={() => { setTaggingTrackId(track.id); setShowAddToPlaylist(null); }}
-                      className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
-                    >
-                      <Tag size={12} />
-                      Manage Tags
-                    </button>
-                    <button 
-                      onClick={() => { setEditingTrackId(track.id); setEditingTrackName(track.name); setShowAddToPlaylist(null); }}
-                      className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
-                    >
-                      <Edit2 size={12} />
-                      Edit Name
-                    </button>
-                    <button 
-                      onClick={() => { 
-                        setTrimmingTrackId(track.id); 
-                        setTrimStart((track.startTime || 0).toString());
-                        setTrimEnd((track.endTime || 0).toString());
-                        setShowAddToPlaylist(null); 
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
-                    >
-                      <Settings size={12} />
-                      Set Play Range
-                    </button>
-                    <button 
-                      onClick={() => {
-                        deleteTrack(track.id);
-                        setShowAddToPlaylist(null);
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/20 transition-colors border-t border-white/10 flex items-center gap-2"
-                    >
-                      <Trash2 size={12} />
-                      Delete Track
-                    </button>
-                  </div>
-                )}
-              </Reorder.Item>
-              );
-            })}
-          </Reorder.Group>
+              {tracks.map((track, index) => (
+                <ReorderableTrackItem
+                  key={track.id}
+                  track={track}
+                  index={index}
+                  currentIndex={currentIndex}
+                  activePlaylistId={activePlaylistId}
+                  isSelectingForPlaylist={isSelectingForPlaylist}
+                  selectedPlaylistId={selectedPlaylistId}
+                  playlists={playlists}
+                  isPlaying={isPlaying}
+                  showAddToPlaylist={showAddToPlaylist}
+                  setShowAddToPlaylist={setShowAddToPlaylist}
+                  addToPlaylist={addToPlaylist}
+                  removeFromPlaylist={removeFromPlaylist}
+                  handleSelectTrack={handleSelectTrack}
+                  setTaggingTrackId={setTaggingTrackId}
+                  setEditingTrackId={setEditingTrackId}
+                  setEditingTrackName={setEditingTrackName}
+                  setTrimmingTrackId={setTrimmingTrackId}
+                  setTrimStart={setTrimStart}
+                  setTrimEnd={setTrimEnd}
+                  deleteTrack={deleteTrack}
+                />
+              ))}
+            </Reorder.Group>
           )
         ) : libraryTab === 'playlists' ? (
           playlists.length === 0 ? (
@@ -1462,95 +1669,27 @@ export default function App() {
           ) : (
             <Reorder.Group axis="y" values={playlistTracks} onReorder={handleReorderPlaylistTracks} className="space-y-2">
               {playlistTracks.map((track, index) => (
-              <Reorder.Item key={`${track.id}-${index}`} value={track} className={`w-full flex items-center p-3 rounded-xl transition-colors group ${index === currentIndex && activePlaylistId === playlist.id ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-                <div className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0">
-                  <GripVertical size={16} />
-                </div>
-                <button
-                  onClick={() => handleSelectTrack(index, playlist.id)}
-                  className="flex-1 flex items-center text-left min-w-0"
-                >
-                  <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center mr-4 shrink-0">
-                    {index === currentIndex && activePlaylistId === playlist.id && isPlaying ? (
-                      <div className="flex gap-0.5 items-end h-4">
-                        <div className="w-1 bg-pink-500 animate-eq h-full" />
-                        <div className="w-1 bg-pink-500 animate-eq-delay-1 h-2/3" />
-                        <div className="w-1 bg-pink-500 animate-eq-delay-2 h-4/5" />
-                      </div>
-                    ) : (
-                      <Music size={20} className="text-white/50" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`truncate text-sm font-medium ${index === currentIndex && activePlaylistId === playlist.id ? 'text-pink-500' : 'text-white'}`}>
-                      {track.name}
-                    </p>
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
-                      {track.tags && track.tags.length > 0 && (
-                        <div className="flex gap-1 overflow-hidden">
-                          {track.tags.map(tag => (
-                            <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-                <div className="relative flex items-center ml-2">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
-                    className="p-2 text-white/30 hover:text-white transition-colors more-button"
-                  >
-                    <MoreVertical size={18} />
-                  </button>
-                  
-                  {showAddToPlaylist === track.id && (
-                    <div className="absolute right-0 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
-                      <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
-                        Track Options
-                      </div>
-                      <button 
-                        onClick={() => { setTaggingTrackId(track.id); setShowAddToPlaylist(null); }}
-                        className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors flex items-center gap-2"
-                      >
-                        <Tag size={12} />
-                        Manage Tags
-                      </button>
-                      <button 
-                        onClick={() => { setEditingTrackId(track.id); setEditingTrackName(track.name); setShowAddToPlaylist(null); }}
-                        className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
-                      >
-                        <Edit2 size={12} />
-                        Edit Name
-                      </button>
-                      <button 
-                        onClick={() => { 
-                          setTrimmingTrackId(track.id); 
-                          setTrimStart((track.startTime || 0).toString());
-                          setTrimEnd((track.endTime || 0).toString());
-                          setShowAddToPlaylist(null); 
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
-                      >
-                        <Settings size={12} />
-                        Set Play Range
-                      </button>
-                      <button 
-                        onClick={() => { removeFromPlaylist(playlist.id, track.id); setShowAddToPlaylist(null); }}
-                        className="w-full text-left px-3 py-2 text-xs text-red-500 hover:bg-white/10 transition-colors border-t border-white/10 flex items-center gap-2"
-                      >
-                        <X size={12} />
-                        Remove from Playlist
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </Reorder.Item>
-            ))}
-          </Reorder.Group>
+                <ReorderablePlaylistTrackItem
+                  key={`${track.id}-${index}`}
+                  track={track}
+                  index={index}
+                  currentIndex={currentIndex}
+                  activePlaylistId={activePlaylistId}
+                  playlist={playlist}
+                  isPlaying={isPlaying}
+                  showAddToPlaylist={showAddToPlaylist}
+                  setShowAddToPlaylist={setShowAddToPlaylist}
+                  handleSelectTrack={handleSelectTrack}
+                  setTaggingTrackId={setTaggingTrackId}
+                  setEditingTrackId={setEditingTrackId}
+                  setEditingTrackName={setEditingTrackName}
+                  setTrimmingTrackId={setTrimmingTrackId}
+                  setTrimStart={setTrimStart}
+                  setTrimEnd={setTrimEnd}
+                  removeFromPlaylist={removeFromPlaylist}
+                />
+              ))}
+            </Reorder.Group>
           )}
         </div>
       </div>
@@ -1635,18 +1774,6 @@ export default function App() {
       </div>
     );
   }
-
-  const onCanPlay = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    enforceStartTime(audio);
-  };
-
-  const onPlay = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    enforceStartTime(audio);
-  };
-
-  const onPlaying = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
-    enforceStartTime(audio);
-  };
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
