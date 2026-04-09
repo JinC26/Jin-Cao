@@ -354,7 +354,10 @@ export default function App() {
       const timeoutId = setTimeout(() => {
         const playPromise = nextAudio.play();
         if (playPromise !== undefined) {
-          playPromise.catch(console.error);
+          playPromise.then(() => {
+            // Force seek after play starts for iOS
+            enforceStartTime(nextAudio);
+          }).catch(console.error);
         }
         clearIn = fadeAudio(nextGain, 'in', fadeMs, 1, fadeCurve);
         if (clearIn) fadeIntervals.current.push(clearIn);
@@ -371,7 +374,10 @@ export default function App() {
       if (shouldPlay) {
         const playPromise = nextAudio.play();
         if (playPromise !== undefined) {
-          playPromise.catch(console.error);
+          playPromise.then(() => {
+            // Force seek after play starts for iOS
+            enforceStartTime(nextAudio);
+          }).catch(console.error);
         }
       }
     }
@@ -456,9 +462,8 @@ export default function App() {
       return;
     }
     
-    // We need at least HAVE_METADATA (1) to know duration, 
-    // but HAVE_CURRENT_DATA (2) is safer for seeking on some devices.
-    if (audio.readyState >= 1) {
+    // On iOS, readyState 2 (HAVE_CURRENT_DATA) is usually enough to seek.
+    if (audio.readyState >= 2) {
       try {
         const duration = audio.duration;
         
@@ -467,21 +472,19 @@ export default function App() {
 
         // Cap at duration if finite
         const targetTime = isFinite(duration) 
-          ? Math.min(startTime, duration - 0.1) 
+          ? Math.max(0, Math.min(startTime, duration - 0.1)) 
           : startTime;
         
         // If we are far from target, seek
-        if (Math.abs(audio.currentTime - targetTime) > 0.5) {
-          // On some iPad versions, seeking too early can stall playback.
-          // We only seek if we have metadata and the duration is known.
+        if (Math.abs(audio.currentTime - targetTime) > 0.3) {
           audio.currentTime = targetTime;
+          // Don't set startEnforced to true yet, wait for next update to verify seek stuck
         } else {
           // We are close enough, consider it enforced
           audio.dataset.startEnforced = "true";
         }
       } catch (e) {
         console.error("Enforce start time failed", e);
-        // If it fails, we don't mark as enforced so it can retry on next event
       }
     }
   };
@@ -1567,6 +1570,10 @@ export default function App() {
     enforceStartTime(audio);
   };
 
+  const onPlay = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
+    enforceStartTime(audio);
+  };
+
   const onPlaying = (audioNum: 1 | 2, audio: HTMLAudioElement) => {
     enforceStartTime(audio);
   };
@@ -1574,8 +1581,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
-      <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} />
-      <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} />
+      <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} onPlay={(e) => onPlay(1, e.currentTarget)} />
+      <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} onPlay={(e) => onPlay(2, e.currentTarget)} />
       <input
         type="file"
         ref={fileInputRef}
