@@ -4,13 +4,13 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { get, set } from 'idb-keyval';
+import { get, set, del, clear } from 'idb-keyval';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, Music, Repeat, FolderHeart, ArrowLeft, MoreVertical, Trash2, X, Check, Shuffle, Settings, Tag, GripVertical, Edit2 } from 'lucide-react';
 
 interface Track {
   id: string;
-  data: ArrayBuffer; // Use ArrayBuffer for stable persistence on iOS
+  data?: ArrayBuffer; // Optional, only used during transfer
   url: string;
   name: string;
   artist: string;
@@ -142,27 +142,34 @@ export default function App() {
         const storedTracks = await get('tracks');
         let loadedTracks: Track[] = [];
         if (storedTracks && Array.isArray(storedTracks)) {
-          loadedTracks = storedTracks.map((t: any) => {
+          // Process tracks sequentially to avoid memory spikes during load
+          for (const t of storedTracks) {
             try {
               // Handle legacy data (File objects) or new data (ArrayBuffer)
-              const fileData = t.data || t.file;
+              let fileData = t.data || t.file;
+              
+              // If data is missing from the metadata object, try fetching from separate storage
+              if (!fileData) {
+                fileData = await get(`track_data_${t.id}`);
+              }
               
               if (!fileData || (fileData instanceof ArrayBuffer && fileData.byteLength === 0) || (fileData instanceof File && fileData.size === 0)) {
-                return { ...t, url: '', isCorrupted: true };
+                loadedTracks.push({ ...t, url: '', isCorrupted: true, data: undefined });
+                continue;
               }
 
               const blob = new Blob([fileData], { type: t.type || 'audio/flac' });
-              return {
+              loadedTracks.push({
                 ...t,
-                data: fileData instanceof File ? null : fileData, // We'll clean this up in the next save
+                data: undefined, // CRITICAL: Discard binary data from React state
                 url: URL.createObjectURL(blob),
                 isCorrupted: false
-              };
+              });
             } catch (err) {
               console.error(`Failed to recreate URL for track ${t.id}`, err);
-              return { ...t, url: '', isCorrupted: true };
+              loadedTracks.push({ ...t, url: '', isCorrupted: true, data: undefined });
             }
-          });
+          }
           setTracks(loadedTracks);
         }
 
@@ -567,10 +574,13 @@ export default function App() {
         
         const buffer = await file.arrayBuffer();
         const blob = new Blob([buffer], { type: file.type || 'audio/flac' });
+        const id = Math.random().toString(36).substring(7);
+        
+        // Save binary data separately in IDB
+        await set(`track_data_${id}`, buffer);
         
         newTracks.push({
-          id: Math.random().toString(36).substring(7),
-          data: buffer,
+          id,
           url: URL.createObjectURL(blob),
           name: file.name.replace(/\.flac$/i, ''),
           artist: 'Unknown Artist',
@@ -624,27 +634,35 @@ export default function App() {
   };
 
   const clearAllData = async () => {
-    await set('tracks', []);
-    await set('playlists', []);
-    await set('settings', null);
+    await clear();
     window.location.reload();
   };
 
-  const repairLibrary = () => {
-    setTracks(prev => prev.map(t => {
-      if (t.data) {
-        URL.revokeObjectURL(t.url);
-        const blob = new Blob([t.data], { type: t.type || 'audio/flac' });
-        return { ...t, url: URL.createObjectURL(blob), isCorrupted: false };
+  const repairLibrary = async () => {
+    const repairedTracks = [];
+    for (const t of tracks) {
+      try {
+        const fileData = await get(`track_data_${t.id}`);
+        if (fileData) {
+          if (t.url) URL.revokeObjectURL(t.url);
+          const blob = new Blob([fileData], { type: t.type || 'audio/flac' });
+          repairedTracks.push({ ...t, url: URL.createObjectURL(blob), isCorrupted: false });
+        } else {
+          repairedTracks.push({ ...t, isCorrupted: true });
+        }
+      } catch (err) {
+        console.error(`Repair failed for ${t.id}`, err);
+        repairedTracks.push(t);
       }
-      return t;
-    }));
+    }
+    setTracks(repairedTracks);
+    
     // Re-initialize current track
     setTimeout(() => {
       const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
       const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
-      if (currentAudio && tracks[currentIndex]?.url) {
-        currentAudio.src = tracks[currentIndex].url;
+      if (currentAudio && repairedTracks[currentIndex]?.url) {
+        currentAudio.src = repairedTracks[currentIndex].url;
         if (currentGain) currentGain.gain.value = 1;
         currentAudio.load();
       }
@@ -672,7 +690,10 @@ export default function App() {
     }
   };
 
-  const deleteTrack = (trackId: string) => {
+  const deleteTrack = async (trackId: string) => {
+    // Delete binary data from IDB
+    await del(`track_data_${trackId}`);
+    
     setTracks(prev => {
       const trackToDelete = prev.find(t => t.id === trackId);
       if (trackToDelete) {
