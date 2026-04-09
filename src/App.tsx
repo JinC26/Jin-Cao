@@ -124,12 +124,43 @@ export default function App() {
     const loadData = async () => {
       try {
         const storedSettings = await get('settings');
+        let initialIndex = 0;
         if (storedSettings) {
           if (storedSettings.crossfadeEnabled !== undefined) setCrossfadeEnabled(storedSettings.crossfadeEnabled);
           if (storedSettings.crossfadeDuration !== undefined) setCrossfadeDuration(storedSettings.crossfadeDuration);
           if (storedSettings.overlapDuration !== undefined) setOverlapDuration(storedSettings.overlapDuration);
           if (storedSettings.fadeCurve !== undefined) setFadeCurve(storedSettings.fadeCurve);
           if (storedSettings.playMode !== undefined) setPlayMode(storedSettings.playMode);
+          if (storedSettings.currentIndex !== undefined) initialIndex = storedSettings.currentIndex;
+        }
+
+        const storedTracks = await get('tracks');
+        let loadedTracks: Track[] = [];
+        if (storedTracks && Array.isArray(storedTracks)) {
+          loadedTracks = storedTracks.map((t: any) => ({
+            ...t,
+            url: URL.createObjectURL(t.file)
+          }));
+          setTracks(loadedTracks);
+        }
+
+        const storedPlaylists = await get('playlists');
+        if (storedPlaylists && Array.isArray(storedPlaylists)) {
+          setPlaylists(storedPlaylists);
+        }
+
+        // Initialize track if available
+        if (loadedTracks.length > 0) {
+          const validIndex = initialIndex < loadedTracks.length ? initialIndex : 0;
+          setCurrentIndex(validIndex);
+          setTimeout(() => {
+            const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+            const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
+            if (currentAudio) {
+              currentAudio.src = loadedTracks[validIndex].url;
+              if (currentGain) currentGain.gain.value = 1;
+            }
+          }, 0);
         }
       } catch (e) {
         console.error("Failed to load data from IndexedDB", e);
@@ -147,10 +178,25 @@ export default function App() {
         crossfadeDuration,
         overlapDuration,
         fadeCurve,
-        playMode
+        playMode,
+        currentIndex
       });
     }
-  }, [crossfadeEnabled, crossfadeDuration, overlapDuration, fadeCurve, playMode, isDataLoaded]);
+  }, [crossfadeEnabled, crossfadeDuration, overlapDuration, fadeCurve, playMode, currentIndex, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      // We save the tracks but exclude the session-specific blob URLs
+      const tracksToSave = tracks.map(({ url, ...rest }) => rest);
+      set('tracks', tracksToSave);
+    }
+  }, [tracks, isDataLoaded]);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      set('playlists', playlists);
+    }
+  }, [playlists, isDataLoaded]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
