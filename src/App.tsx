@@ -10,10 +10,11 @@ import { Play, Pause, SkipForward, SkipBack, ListMusic, Plus, Volume2, VolumeX, 
 
 interface Track {
   id: string;
-  file: File;
+  data: ArrayBuffer; // Use ArrayBuffer for stable persistence on iOS
   url: string;
   name: string;
   artist: string;
+  type: string;
   tags?: string[];
   startTime?: number;
   endTime?: number;
@@ -143,16 +144,17 @@ export default function App() {
         if (storedTracks && Array.isArray(storedTracks)) {
           loadedTracks = storedTracks.map((t: any) => {
             try {
-              const file = t.file;
-              // On some iOS versions, File objects from IDB can lose their data reference.
-              // We check size to detect if the data was purged by the system.
-              if (!file || file.size === 0) {
+              // Handle legacy data (File objects) or new data (ArrayBuffer)
+              const fileData = t.data || t.file;
+              
+              if (!fileData || (fileData instanceof ArrayBuffer && fileData.byteLength === 0) || (fileData instanceof File && fileData.size === 0)) {
                 return { ...t, url: '', isCorrupted: true };
               }
 
-              const blob = new Blob([file], { type: file.type || 'audio/flac' });
+              const blob = new Blob([fileData], { type: t.type || 'audio/flac' });
               return {
                 ...t,
+                data: fileData instanceof File ? null : fileData, // We'll clean this up in the next save
                 url: URL.createObjectURL(blob),
                 isCorrupted: false
               };
@@ -543,7 +545,7 @@ export default function App() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
     const flacFiles = files.filter(f => f.name.toLowerCase().endsWith('.flac') || f.type === 'audio/flac' || f.type === 'audio/x-flac');
 
@@ -558,14 +560,24 @@ export default function App() {
     setUploadError(null);
 
     try {
-      const newTracks = flacFiles.map(file => ({
-        id: Math.random().toString(36).substring(7),
-        file,
-        url: URL.createObjectURL(file),
-        name: file.name.replace(/\.flac$/i, ''),
-        artist: 'Unknown Artist',
-        isCorrupted: file.size === 0
-      }));
+      const newTracks: Track[] = [];
+      
+      for (const file of flacFiles) {
+        if (file.size === 0) continue;
+        
+        const buffer = await file.arrayBuffer();
+        const blob = new Blob([buffer], { type: file.type || 'audio/flac' });
+        
+        newTracks.push({
+          id: Math.random().toString(36).substring(7),
+          data: buffer,
+          url: URL.createObjectURL(blob),
+          name: file.name.replace(/\.flac$/i, ''),
+          artist: 'Unknown Artist',
+          type: file.type || 'audio/flac',
+          isCorrupted: false
+        });
+      }
 
       setTracks(prev => {
         const updated = [...prev, ...newTracks];
@@ -616,6 +628,27 @@ export default function App() {
     await set('playlists', []);
     await set('settings', null);
     window.location.reload();
+  };
+
+  const repairLibrary = () => {
+    setTracks(prev => prev.map(t => {
+      if (t.data) {
+        URL.revokeObjectURL(t.url);
+        const blob = new Blob([t.data], { type: t.type || 'audio/flac' });
+        return { ...t, url: URL.createObjectURL(blob), isCorrupted: false };
+      }
+      return t;
+    }));
+    // Re-initialize current track
+    setTimeout(() => {
+      const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+      const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
+      if (currentAudio && tracks[currentIndex]?.url) {
+        currentAudio.src = tracks[currentIndex].url;
+        if (currentGain) currentGain.gain.value = 1;
+        currentAudio.load();
+      }
+    }, 100);
   };
 
   const handleCreatePlaylist = (e: React.FormEvent) => {
@@ -1258,6 +1291,19 @@ export default function App() {
             </div>
 
             {/* Danger Zone */}
+            <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 mt-4">
+              <div className="flex items-center gap-3">
+                <Settings size={20} className="text-white/50" />
+                <span className="text-xs font-medium text-white">Maintenance</span>
+              </div>
+              <button
+                onClick={repairLibrary}
+                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors border border-white/10"
+              >
+                Repair Library Connections
+              </button>
+            </div>
+
             <div className="flex flex-col gap-6 p-4 bg-red-500/5 rounded-2xl border border-red-500/20 mt-4">
               <div className="flex items-center gap-3">
                 <Trash2 size={20} className="text-red-500" />
