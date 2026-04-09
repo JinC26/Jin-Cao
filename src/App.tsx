@@ -60,10 +60,10 @@ const ReorderableTrackItem = ({
       dragListener={false}
       dragControls={controls}
     >
-      <div className={`w-full flex items-center text-left p-3 rounded-xl transition-colors ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+      <div className={`w-full flex items-center text-left p-3 rounded-2xl transition-all duration-300 ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'glass border-emerald-500/30' : 'hover:bg-white/5'}`}>
         {!isSelectingForPlaylist && (
           <div 
-            className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0 touch-none"
+            className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-emerald-400 transition-colors shrink-0 touch-none"
             onPointerDown={(e) => controls.start(e)}
           >
             <GripVertical size={16} />
@@ -83,30 +83,30 @@ const ReorderableTrackItem = ({
           }} 
           className="flex-1 flex items-center min-w-0"
         >
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-4 shrink-0 ${isSelected ? 'bg-pink-500 text-white' : 'bg-white/10 text-white/50'}`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-4 shrink-0 transition-all duration-500 ${isSelected ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'bg-white/5 text-white/50'}`}>
             {isSelectingForPlaylist ? (
-              isSelected ? <Check size={20} /> : <Plus size={20} />
+              isSelected ? <Check size={20} strokeWidth={3} /> : <Plus size={20} />
             ) : index === currentIndex && activePlaylistId === null && isPlaying ? (
               <div className="flex gap-0.5 items-end h-4">
-                <div className="w-1 bg-pink-500 animate-eq h-full" />
-                <div className="w-1 bg-pink-500 animate-eq-delay-1 h-2/3" />
-                <div className="w-1 bg-pink-500 animate-eq-delay-2 h-4/5" />
+                <div className="w-1 bg-emerald-400 animate-eq h-full" />
+                <div className="w-1 bg-emerald-400 animate-eq-delay-1 h-2/3" />
+                <div className="w-1 bg-emerald-400 animate-eq-delay-2 h-4/5" />
               </div>
             ) : (
-              <Music size={20} className={isSelected ? "text-white" : "text-white/50"} />
+              <Music size={20} className={isSelected ? "text-black" : "text-white/50"} />
             )}
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <p className={`truncate text-sm font-medium ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-pink-500' : 'text-white'}`}>
+            <p className={`truncate text-sm font-display font-semibold tracking-tight ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-emerald-400' : 'text-white'}`}>
               {track.name}
-              {track.isCorrupted && <span className="ml-2 text-[10px] text-red-500 font-bold uppercase tracking-tighter">! Missing Data</span>}
+              {track.isCorrupted && <span className="ml-2 text-[10px] text-rose-500 font-bold uppercase tracking-widest">! Missing Data</span>}
             </p>
             <div className="flex items-center gap-2 overflow-hidden">
-              <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
+              <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium shrink-0">{track.artist}</p>
               {track.tags && track.tags.length > 0 && (
                 <div className="flex gap-1 overflow-hidden">
                   {track.tags.map((tag: string) => (
-                    <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
+                    <span key={tag} className="text-[8px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400/60 rounded-full whitespace-nowrap border border-emerald-500/20 font-bold uppercase tracking-tighter">
                       {tag}
                     </span>
                   ))}
@@ -118,7 +118,7 @@ const ReorderableTrackItem = ({
         {!isSelectingForPlaylist && (
           <button 
             onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
-            className="p-2 text-white/50 hover:text-white transition-colors ml-2 more-button"
+            className="p-2 text-white/30 hover:text-emerald-400 transition-colors ml-2 more-button"
           >
             <MoreVertical size={20} />
           </button>
@@ -126,9 +126,9 @@ const ReorderableTrackItem = ({
       </div>
       
       {showAddToPlaylist === track.id && (
-        <div className="absolute right-12 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
-          <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
-            Add to Playlist
+        <div className="absolute right-12 top-10 glass-dark rounded-2xl shadow-2xl z-20 w-52 overflow-hidden track-menu-container animate-in fade-in zoom-in duration-200">
+          <div className="px-4 py-3 text-[10px] font-bold text-emerald-400/60 border-b border-white/5 uppercase tracking-[0.2em] font-display">
+            Track Options
           </div>
           <div className="max-h-48 overflow-y-auto">
             {playlists.length === 0 ? (
@@ -210,12 +210,12 @@ const ReorderablePlaylistTrackItem = ({
   return (
     <Reorder.Item 
       value={track} 
-      className={`w-full flex items-center p-3 rounded-xl transition-colors group ${index === currentIndex && activePlaylistId === playlist.id ? 'bg-white/10' : 'hover:bg-white/5'}`}
+      className={`w-full flex items-center p-3 rounded-2xl transition-all duration-300 group ${index === currentIndex && activePlaylistId === playlist.id ? 'glass border-emerald-500/30' : 'hover:bg-white/5'}`}
       dragListener={false}
       dragControls={controls}
     >
       <div 
-        className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/40 transition-colors shrink-0 touch-none"
+        className="p-1 mr-1 cursor-grab active:cursor-grabbing text-white/20 hover:text-emerald-400 transition-colors shrink-0 touch-none"
         onPointerDown={(e) => controls.start(e)}
       >
         <GripVertical size={16} />
@@ -224,27 +224,27 @@ const ReorderablePlaylistTrackItem = ({
         onClick={() => handleSelectTrack(index, playlist.id)}
         className="flex-1 flex items-center text-left min-w-0"
       >
-        <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center mr-4 shrink-0">
+        <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center mr-4 shrink-0 transition-all duration-500">
           {index === currentIndex && activePlaylistId === playlist.id && isPlaying ? (
             <div className="flex gap-0.5 items-end h-4">
-              <div className="w-1 bg-pink-500 animate-eq h-full" />
-              <div className="w-1 bg-pink-500 animate-eq-delay-1 h-2/3" />
-              <div className="w-1 bg-pink-500 animate-eq-delay-2 h-4/5" />
+              <div className="w-1 bg-emerald-400 animate-eq h-full" />
+              <div className="w-1 bg-emerald-400 animate-eq-delay-1 h-2/3" />
+              <div className="w-1 bg-emerald-400 animate-eq-delay-2 h-4/5" />
             </div>
           ) : (
-            <Music size={20} className="text-white/50" />
+            <Music size={20} className="text-white/30" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`truncate text-sm font-medium ${index === currentIndex && activePlaylistId === playlist.id ? 'text-pink-500' : 'text-white'}`}>
+          <p className={`truncate text-sm font-display font-semibold tracking-tight ${index === currentIndex && activePlaylistId === playlist.id ? 'text-emerald-400' : 'text-white'}`}>
             {track.name}
           </p>
           <div className="flex items-center gap-2 overflow-hidden">
-            <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
+            <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium shrink-0">{track.artist}</p>
             {track.tags && track.tags.length > 0 && (
               <div className="flex gap-1 overflow-hidden">
                 {track.tags.map((tag: string) => (
-                  <span key={tag} className="text-[8px] px-1.5 py-0.5 bg-white/10 text-white/40 rounded-full whitespace-nowrap border border-white/5">
+                  <span key={tag} className="text-[8px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400/60 rounded-full whitespace-nowrap border border-emerald-500/20 font-bold uppercase tracking-tighter">
                     {tag}
                   </span>
                 ))}
@@ -256,14 +256,14 @@ const ReorderablePlaylistTrackItem = ({
       <div className="relative flex items-center ml-2">
         <button 
           onClick={(e) => { e.stopPropagation(); setShowAddToPlaylist(showAddToPlaylist === track.id ? null : track.id); }}
-          className="p-2 text-white/30 hover:text-white transition-colors more-button"
+          className="p-2 text-white/30 hover:text-emerald-400 transition-colors more-button"
         >
           <MoreVertical size={18} />
         </button>
         
         {showAddToPlaylist === track.id && (
-          <div className="absolute right-0 top-10 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-20 w-48 overflow-hidden track-menu-container">
-            <div className="px-3 py-2 text-[10px] font-semibold text-white/50 border-b border-white/10 uppercase tracking-wider">
+          <div className="absolute right-0 top-10 glass-dark rounded-2xl shadow-2xl z-20 w-52 overflow-hidden track-menu-container animate-in fade-in zoom-in duration-200">
+            <div className="px-4 py-3 text-[10px] font-bold text-emerald-400/60 border-b border-white/5 uppercase tracking-[0.2em] font-display">
               Track Options
             </div>
             <button 
@@ -1261,30 +1261,38 @@ export default function App() {
   };
 
   const renderPlayer = () => (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden pt-4">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden pt-4 art-gradient">
       {/* Main Scrollable Area (Player + Settings) */}
       <div className="flex-[1.5] flex flex-col min-h-0 overflow-y-auto">
         <div className="p-6 flex flex-col items-center">
           {/* Artwork */}
-          <div className="w-full max-w-[280px] aspect-square bg-gradient-to-br from-white/10 to-white/5 rounded-3xl shadow-2xl border border-white/10 flex items-center justify-center overflow-hidden relative mb-8 shrink-0 mt-8">
+          <div className="w-full max-w-[280px] aspect-square bg-white/5 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10 flex items-center justify-center overflow-hidden relative mb-8 shrink-0 mt-8 group">
+            <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
             {currentTrack ? (
-              <Music size={80} className="text-white/20" />
+              <div className="relative">
+                <Music size={80} className="text-emerald-500/40" />
+                <div className="absolute -inset-4 bg-emerald-500/20 blur-2xl rounded-full opacity-50" />
+              </div>
             ) : (
               <div className="text-center p-6">
-                <Music size={48} className="mx-auto mb-4 text-white/20" />
-                <p className="text-white/50 text-sm">No FLAC files loaded</p>
+                <Music size={48} className="mx-auto mb-4 text-white/10" />
+                <p className="text-white/30 text-[10px] uppercase tracking-[0.2em] font-bold">No tracks loaded</p>
               </div>
             )}
           </div>
 
           {/* Track Info */}
-          <div className="mb-6 shrink-0 text-center w-full relative">
-            <h2 className="text-xl font-bold truncate px-12">{currentTrack ? currentTrack.name : 'Not Playing'}</h2>
-            <p className="text-base text-white/50 truncate px-12">{currentTrack ? currentTrack.artist : '--'}</p>
+          <div className="mb-10 shrink-0 text-center w-full relative">
+            <h2 className="text-2xl font-display font-bold tracking-tight truncate px-12 text-white">
+              {currentTrack ? currentTrack.name : 'Not Playing'}
+            </h2>
+            <p className="text-xs font-medium uppercase tracking-[0.3em] text-emerald-500/60 truncate px-12 mt-2">
+              {currentTrack ? currentTrack.artist : '--'}
+            </p>
             {currentTrack && (
               <button 
                 onClick={() => setShowPlayerMenu(!showPlayerMenu)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white/30 hover:text-white transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-white/20 hover:text-emerald-400 transition-colors"
               >
                 <MoreVertical size={20} />
               </button>
@@ -1297,16 +1305,16 @@ export default function App() {
                   className="fixed inset-0 z-40" 
                   onClick={() => setShowPlayerMenu(false)}
                 />
-                <div className="absolute right-4 top-full mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-4 top-full mt-2 w-52 glass-dark rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                   <button 
                     onClick={() => {
                       setEditingTrackId(currentTrack.id);
                       setEditingTrackName(currentTrack.name);
                       setShowPlayerMenu(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors border-b border-white/5"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest text-white/70 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors border-b border-white/5"
                   >
-                    <Edit2 size={16} />
+                    <Edit2 size={14} />
                     <span>Rename Track</span>
                   </button>
                   <button 
@@ -1316,9 +1324,9 @@ export default function App() {
                       setTrimEnd((currentTrack.endTime || 0).toString());
                       setShowPlayerMenu(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors border-b border-white/5"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest text-white/70 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors border-b border-white/5"
                   >
-                    <Settings size={16} />
+                    <Settings size={14} />
                     <span>Set Play Range</span>
                   </button>
                   <button 
@@ -1326,9 +1334,9 @@ export default function App() {
                       setTaggingTrackId(currentTrack.id);
                       setShowPlayerMenu(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold uppercase tracking-widest text-white/70 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors"
                   >
-                    <Tag size={16} />
+                    <Tag size={14} />
                     <span>Manage Tags</span>
                   </button>
                 </div>
@@ -1337,12 +1345,12 @@ export default function App() {
           </div>
 
           {/* Progress */}
-          <div className="w-full mb-8 shrink-0 relative px-4">
-            <div className="relative h-6 flex items-center group/progress" ref={playerTrackRef}>
+          <div className="w-full mb-12 shrink-0 relative px-6">
+            <div className="relative h-8 flex items-center group/progress" ref={playerTrackRef}>
               {/* Background Track */}
-              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1.5 bg-white/10 rounded-full overflow-hidden pointer-events-none">
+              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-white/5 rounded-full overflow-hidden pointer-events-none">
                 <div 
-                  className={`h-full bg-pink-500 ${isSeeking ? '' : 'transition-all duration-300'}`}
+                  className={`h-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] ${isSeeking ? '' : 'transition-all duration-300'}`}
                   style={{ width: `${(progress / (duration || 1)) * 100}%` }}
                 />
               </div>
@@ -1360,29 +1368,29 @@ export default function App() {
                 onPointerCancel={handleSliderPointerUp}
               >
                 {/* Visual Thumb */}
-                <div className={`w-6 h-6 bg-white rounded-full border-2 border-pink-500 shadow-xl transition-all duration-200 ${isSeeking ? 'scale-125 opacity-100' : 'scale-75 opacity-60 group-hover/progress:opacity-100 group-hover/progress:scale-100'}`} />
+                <div className={`w-6 h-6 bg-white rounded-full border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all duration-300 ${isSeeking ? 'scale-150' : 'scale-100 opacity-80 group-hover/progress:opacity-100 group-hover/progress:scale-110'}`} />
                 {/* Larger hit area for the thumb */}
-                <div className="absolute inset-[-12px] rounded-full" />
+                <div className="absolute inset-[-16px] rounded-full" />
               </div>
             </div>
-            <div className="flex justify-between text-[10px] text-white/50 mt-2 font-mono px-1">
+            <div className="flex justify-between text-[10px] font-bold tracking-widest text-white/30 mt-4 font-art px-1">
               <span>{formatTime(progress)}</span>
               <span>-{formatTime(duration - progress)}</span>
             </div>
           </div>
 
           {/* Controls */}
-          <div className="w-full flex items-center justify-between px-4 shrink-0">
-            <button onClick={handlePrev} className="p-2 text-white/80 hover:text-white transition-colors">
+          <div className="w-full flex items-center justify-between px-8 shrink-0">
+            <button onClick={handlePrev} className="p-3 text-white/40 hover:text-emerald-400 transition-all hover:scale-110 active:scale-90">
               <SkipBack size={32} fill="currentColor" />
             </button>
             <button
               onClick={togglePlay}
-              className="w-20 h-20 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-xl"
+              className="w-24 h-24 flex items-center justify-center bg-white text-black rounded-[2.5rem] hover:scale-105 active:scale-95 transition-all shadow-[0_20px_40px_rgba(255,255,255,0.1)] group"
             >
-              {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1.5" />}
+              {isPlaying ? <Pause size={36} fill="currentColor" /> : <Play size={36} fill="currentColor" className="ml-2 group-hover:scale-110 transition-transform" />}
             </button>
-            <button onClick={() => handleNext(false)} className="p-2 text-white/80 hover:text-white transition-colors">
+            <button onClick={() => handleNext(false)} className="p-3 text-white/40 hover:text-emerald-400 transition-all hover:scale-110 active:scale-90">
               <SkipForward size={32} fill="currentColor" />
             </button>
           </div>
@@ -1390,34 +1398,34 @@ export default function App() {
       </div>
 
       {/* Queue Section (Fixed at bottom) */}
-      <div className="flex-1 flex flex-col bg-black/40 border-t border-white/10 min-h-0">
-        <div className="px-4 py-3 text-[10px] font-semibold text-white/50 uppercase tracking-wider sticky top-0 bg-black/60 backdrop-blur-md z-10 flex justify-between items-center">
+      <div className="flex-1 flex flex-col glass-dark border-t border-white/5 min-h-0 rounded-t-[3rem]">
+        <div className="px-8 py-5 text-[10px] font-bold text-emerald-400/60 uppercase tracking-[0.3em] sticky top-0 bg-black/20 backdrop-blur-md z-10 flex justify-between items-center">
           <span>{activePlaylistId ? playlists.find(p => p.id === activePlaylistId)?.name : 'Up Next'}</span>
-          <span>{getActiveQueue().length} tracks</span>
+          <span className="bg-emerald-500/10 px-2 py-0.5 rounded-full text-[8px] border border-emerald-500/20">{getActiveQueue().length} tracks</span>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1 pb-32">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-32">
           {getActiveQueue().map((track, index) => (
             <button
               key={`${track.id}-${index}`}
               onClick={() => handleSelectTrack(index, activePlaylistId)}
-              className={`w-full flex items-center text-left p-2 rounded-lg transition-colors ${index === currentIndex ? 'bg-white/10' : 'hover:bg-white/5'}`}
+              className={`w-full flex items-center text-left p-3 rounded-2xl transition-all duration-300 ${index === currentIndex ? 'glass border-emerald-500/20' : 'hover:bg-white/5'}`}
             >
-              <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center mr-3 shrink-0">
+              <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center mr-4 shrink-0">
                 {index === currentIndex && isPlaying ? (
-                  <div className="flex gap-0.5 items-end h-3">
-                    <div className="w-0.5 bg-pink-500 animate-eq h-full" />
-                    <div className="w-0.5 bg-pink-500 animate-eq-delay-1 h-2/3" />
-                    <div className="w-0.5 bg-pink-500 animate-eq-delay-2 h-4/5" />
+                  <div className="flex gap-0.5 items-end h-4">
+                    <div className="w-1 bg-emerald-400 animate-eq h-full" />
+                    <div className="w-1 bg-emerald-400 animate-eq-delay-1 h-2/3" />
+                    <div className="w-1 bg-emerald-400 animate-eq-delay-2 h-4/5" />
                   </div>
                 ) : (
-                  <Music size={14} className={index === currentIndex ? "text-pink-500" : "text-white/50"} />
+                  <Music size={16} className={index === currentIndex ? "text-emerald-400" : "text-white/20"} />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`truncate text-xs font-medium ${index === currentIndex ? 'text-pink-500' : 'text-white'}`}>
+                <p className={`truncate text-sm font-display font-semibold tracking-tight ${index === currentIndex ? 'text-emerald-400' : 'text-white'}`}>
                   {track.name}
                 </p>
-                <p className="truncate text-[10px] text-white/50">{track.artist}</p>
+                <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium mt-0.5">{track.artist}</p>
               </div>
             </button>
           ))}
@@ -1427,15 +1435,15 @@ export default function App() {
   );
 
   const renderLibrary = () => (
-    <div className="flex flex-col flex-1 min-h-0 pt-4">
+    <div className="flex flex-col flex-1 min-h-0 pt-4 art-gradient">
       {/* Header (Selection mode only) */}
       {isSelectingForPlaylist && (
-        <div className="p-6 pb-4 border-b border-white/10 flex justify-between items-center bg-black/20 backdrop-blur-md z-10">
-          <h1 className="text-lg font-bold tracking-tight">Add Tracks</h1>
+        <div className="p-6 pb-4 border-b border-white/5 flex justify-between items-center glass-dark backdrop-blur-md z-10">
+          <h1 className="text-lg font-display font-bold tracking-tight">Add Tracks</h1>
           <button onClick={() => {
             setIsSelectingForPlaylist(false);
             switchView('playlist-detail');
-          }} className="text-pink-500 font-bold text-xs uppercase tracking-widest hover:text-pink-400 transition-colors">
+          }} className="text-emerald-400 font-bold text-xs uppercase tracking-[0.2em] hover:text-emerald-300 transition-colors">
             Done
           </button>
         </div>
@@ -1445,9 +1453,11 @@ export default function App() {
       <div className="flex-1 overflow-y-auto p-4 space-y-2 relative min-h-0 pb-32">
         {libraryTab === 'tracks' ? (
           tracks.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
-              <Music size={48} className="opacity-50" />
-              <p className="text-xs font-medium uppercase tracking-widest">No tracks in library</p>
+            <div className="h-full flex flex-col items-center justify-center text-white/20 space-y-6">
+              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
+                <Music size={48} className="opacity-50" />
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em]">No tracks in library</p>
             </div>
           ) : (
             <Reorder.Group axis="y" values={tracks} onReorder={handleReorderTracks} className="space-y-2">
@@ -1480,28 +1490,30 @@ export default function App() {
           )
         ) : libraryTab === 'playlists' ? (
           playlists.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
-              <FolderHeart size={48} className="opacity-50" />
-              <p className="text-xs font-medium uppercase tracking-widest">No playlists yet</p>
+            <div className="h-full flex flex-col items-center justify-center text-white/20 space-y-6">
+              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
+                <FolderHeart size={48} className="opacity-50" />
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em]">No playlists yet</p>
             </div>
           ) : (
             playlists.map(playlist => (
-              <div key={playlist.id} className="w-full flex items-center p-3 rounded-xl hover:bg-white/5 transition-colors group">
+              <div key={playlist.id} className="w-full flex items-center p-4 rounded-2xl hover:bg-white/5 transition-all group border border-transparent hover:border-white/5">
                 <button
                   onClick={() => { setSelectedPlaylistId(playlist.id); switchView('playlist-detail'); }}
                   className="flex-1 flex items-center text-left min-w-0"
                 >
-                  <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center mr-4 shrink-0">
-                    <FolderHeart size={24} className="text-white/50" />
+                  <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center mr-4 shrink-0 border border-white/5">
+                    <FolderHeart size={24} className="text-emerald-500/40" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium text-white">{playlist.name}</p>
-                    <p className="truncate text-xs text-white/50">{playlist.trackIds.length} tracks</p>
+                    <p className="truncate text-sm font-display font-bold tracking-tight text-white">{playlist.name}</p>
+                    <p className="truncate text-[10px] font-bold uppercase tracking-widest text-white/30 mt-0.5">{playlist.trackIds.length} tracks</p>
                   </div>
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); deletePlaylist(playlist.id); }}
-                  className="p-3 text-white/30 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                  className="p-3 text-white/20 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all"
                   title="Delete Playlist"
                 >
                   <Trash2 size={18} />
@@ -1512,17 +1524,19 @@ export default function App() {
         ) : (
           <div className="flex flex-col gap-6 pb-32">
             {/* Play Mode Section */}
-            <div className="flex flex-col gap-6 p-4 bg-white/5 rounded-2xl border border-white/10">
+            <div className="flex flex-col gap-6 p-6 glass-dark rounded-[2rem]">
               <div className="flex items-center gap-3">
-                <Repeat size={20} className="text-pink-500" />
-                <span className="text-xs font-medium text-white">Play Mode</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                  <Repeat size={16} className="text-emerald-400" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Play Mode</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 bg-white/5 p-1 rounded-xl">
+              <div className="grid grid-cols-3 gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
                 {(['order', 'random', 'repeat'] as const).map(mode => (
                   <button
                     key={mode}
                     onClick={() => setPlayMode(mode)}
-                    className={`text-[10px] py-3 rounded-lg uppercase tracking-wider transition-all ${playMode === mode ? 'bg-pink-500 text-white font-bold shadow-lg' : 'text-white/50 hover:text-white/80 hover:bg-white/5'}`}
+                    className={`text-[10px] py-3 rounded-xl uppercase tracking-[0.2em] transition-all font-bold ${playMode === mode ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
                   >
                     {mode}
                   </button>
@@ -1531,29 +1545,31 @@ export default function App() {
             </div>
 
             {/* Crossfade Section */}
-            <div className="flex flex-col gap-6 p-4 bg-white/5 rounded-2xl border border-white/10">
+            <div className="flex flex-col gap-6 p-6 glass-dark rounded-[2rem]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Shuffle size={20} className={crossfadeEnabled ? "text-pink-500" : "text-white/30"} />
-                  <span className="text-xs font-medium text-white">Crossfade Settings</span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                    <Shuffle size={16} className={crossfadeEnabled ? "text-emerald-400" : "text-white/20"} />
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Crossfade</span>
                 </div>
                 <button
                   onClick={() => setCrossfadeEnabled(!crossfadeEnabled)}
-                  className={`w-14 h-7 rounded-full transition-colors relative ${crossfadeEnabled ? 'bg-pink-500' : 'bg-white/20'}`}
+                  className={`w-14 h-7 rounded-full transition-all duration-500 relative ${crossfadeEnabled ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-white/10'}`}
                 >
-                  <div className={`w-6 h-6 bg-white rounded-full absolute top-0.5 transition-transform ${crossfadeEnabled ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform duration-500 ${crossfadeEnabled ? 'translate-x-8' : 'translate-x-1'}`} />
                 </button>
               </div>
               
               {crossfadeEnabled && (
-                <div className="flex flex-col gap-6">
-                  <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="flex flex-col gap-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Crossfade Duration</span>
-                      <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{crossfadeDuration}s</span>
+                      <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Duration</span>
+                      <span className="text-[10px] text-emerald-400 font-art font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">{crossfadeDuration}s</span>
                     </div>
                     <div className="flex items-center gap-4 py-2">
-                      <span className="text-[10px] text-white/30 w-6">0s</span>
+                      <span className="text-[10px] text-white/20 font-art w-6">0s</span>
                       <input
                         type="range"
                         min={0}
@@ -1567,19 +1583,19 @@ export default function App() {
                             setOverlapDuration(val);
                           }
                         }}
-                        className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                        className="flex-1 h-1.5 bg-white/5 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer hover:[&::-webkit-slider-thumb]:scale-110 transition-all"
                       />
-                      <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
+                      <span className="text-[10px] text-white/20 font-art w-6 text-right">10s</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Overlap Duration</span>
-                      <span className="text-xs text-white font-mono bg-white/10 px-2 py-1 rounded">{overlapDuration}s</span>
+                      <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Overlap</span>
+                      <span className="text-[10px] text-emerald-400 font-art font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">{overlapDuration}s</span>
                     </div>
                     <div className="flex items-center gap-4 py-2">
-                      <span className="text-[10px] text-white/30 w-6">0s</span>
+                      <span className="text-[10px] text-white/20 font-art w-6">0s</span>
                       <input
                         type="range"
                         min={0}
@@ -1587,20 +1603,20 @@ export default function App() {
                         step={0.5}
                         value={overlapDuration}
                         onChange={(e) => setOverlapDuration(Math.min(Number(e.target.value), crossfadeDuration))}
-                        className="flex-1 h-2 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer"
+                        className="flex-1 h-1.5 bg-white/5 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer hover:[&::-webkit-slider-thumb]:scale-110 transition-all"
                       />
-                      <span className="text-[10px] text-white/30 w-6 text-right">10s</span>
+                      <span className="text-[10px] text-white/20 font-art w-6 text-right">10s</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3">
-                    <span className="text-[10px] text-white/50 uppercase tracking-wider font-semibold">Fade Curve</span>
-                    <div className="grid grid-cols-3 gap-2 bg-white/5 p-1 rounded-xl">
+                  <div className="flex flex-col gap-4">
+                    <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Fade Curve</span>
+                    <div className="grid grid-cols-3 gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
                       {(['linear', 'equal-power', 'quadratic'] as FadeCurve[]).map(c => (
                         <button
                           key={c}
                           onClick={() => setFadeCurve(c)}
-                          className={`text-[10px] py-3 rounded-lg uppercase tracking-wider transition-all ${fadeCurve === c ? 'bg-pink-500 text-white font-bold shadow-lg' : 'text-white/50 hover:text-white/80 hover:bg-white/5'}`}
+                          className={`text-[10px] py-3 rounded-xl uppercase tracking-[0.2em] transition-all font-bold ${fadeCurve === c ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-white/30 hover:text-white/60 hover:bg-white/5'}`}
                         >
                           {c.replace('-', ' ')}
                         </button>
@@ -1611,28 +1627,32 @@ export default function App() {
               )}
             </div>
 
-            {/* Danger Zone */}
-            <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-2xl border border-white/10 mt-4">
+            {/* Maintenance Zone */}
+            <div className="flex flex-col gap-6 p-6 glass-dark rounded-[2rem] border-white/5">
               <div className="flex items-center gap-3">
-                <Settings size={20} className="text-white/50" />
-                <span className="text-xs font-medium text-white">Maintenance</span>
+                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/10">
+                  <Settings size={16} className="text-white/40" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Maintenance</span>
               </div>
               <button
                 onClick={repairLibrary}
-                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors border border-white/10"
+                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all border border-white/10 active:scale-[0.98]"
               >
                 Repair Library Connections
               </button>
             </div>
 
-            <div className="flex flex-col gap-6 p-4 bg-red-500/5 rounded-2xl border border-red-500/20 mt-4">
+            <div className="flex flex-col gap-6 p-6 bg-rose-500/5 rounded-[2rem] border border-rose-500/10">
               <div className="flex items-center gap-3">
-                <Trash2 size={20} className="text-red-500" />
-                <span className="text-xs font-medium text-red-500">Danger Zone</span>
+                <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center border border-rose-500/20">
+                  <Trash2 size={16} className="text-rose-500" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-500/70">Danger Zone</span>
               </div>
               <button
                 onClick={() => setShowClearConfirm(true)}
-                className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors border border-red-500/20"
+                className="w-full py-4 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all border border-rose-500/20 active:scale-[0.98]"
               >
                 Clear All Library Data
               </button>
@@ -1652,19 +1672,26 @@ export default function App() {
     const playlistTracks = playlist.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[];
 
     return (
-      <div className="flex flex-col flex-1 min-h-0 pt-4">
-        <div className="px-6 py-6 flex flex-col gap-2">
-          <button onClick={() => { setLibraryTab('playlists'); switchView('library'); }} className="flex items-center gap-1 text-white/40 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">
-            <ArrowLeft size={12} />
+      <div className="flex flex-col flex-1 min-h-0 pt-4 art-gradient">
+        <div className="px-6 py-8 flex flex-col gap-3">
+          <button onClick={() => { setLibraryTab('playlists'); switchView('library'); }} className="flex items-center gap-2 text-white/30 hover:text-emerald-400 transition-all text-[10px] font-bold uppercase tracking-[0.2em] group">
+            <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
             Back to Playlists
           </button>
-          <h1 className="text-2xl font-bold tracking-tight truncate">{playlist.name}</h1>
+          <h1 className="text-3xl font-display font-bold tracking-tight text-white mt-2">{playlist.name}</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/60 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              {playlistTracks.length} Tracks
+            </span>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2 pb-32">
           {playlistTracks.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-white/50 space-y-4">
-              <Music size={48} className="opacity-50" />
-              <p className="text-xs font-medium uppercase tracking-widest">Playlist is empty</p>
+            <div className="h-full flex flex-col items-center justify-center text-white/20 space-y-6">
+              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
+                <Music size={48} className="opacity-50" />
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em]">Playlist is empty</p>
             </div>
           ) : (
             <Reorder.Group axis="y" values={playlistTracks} onReorder={handleReorderPlaylistTracks} className="space-y-2">
@@ -1703,39 +1730,39 @@ export default function App() {
     return (
       <div 
         onClick={() => switchView('player')}
-        className="h-20 bg-zinc-900/90 backdrop-blur-xl border-t border-white/10 flex items-center px-4 gap-4 cursor-pointer shrink-0 z-50 relative"
+        className="h-20 glass-dark border-t border-white/5 flex items-center px-4 gap-4 cursor-pointer shrink-0 z-50 relative"
       >
-        <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-          <Music size={24} className="text-pink-500" />
+        <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center shrink-0 overflow-hidden border border-white/5 shadow-[0_0_15px_rgba(0,0,0,0.3)]">
+          <Music size={24} className="text-emerald-500/50" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold truncate text-white">{track.name}</p>
-          <p className="text-[10px] text-white/50 truncate">{track.artist}</p>
+          <p className="truncate text-sm font-display font-bold tracking-tight text-white">{track.name}</p>
+          <p className="truncate text-[10px] font-bold uppercase tracking-widest text-white/30 mt-0.5">{track.artist || 'Unknown Artist'}</p>
         </div>
-        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
           <button 
             onClick={togglePlay}
-            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-full transition-colors"
+            className="w-10 h-10 rounded-full bg-emerald-500 text-black flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-90 transition-all"
           >
-            {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
           </button>
           <button 
-            onClick={() => handleNext()}
-            className="w-10 h-10 flex items-center justify-center text-white hover:bg-white/10 rounded-full transition-colors"
+            onClick={handleNext}
+            className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-emerald-400 transition-colors"
           >
-            <SkipForward size={24} fill="currentColor" />
+            <SkipForward size={20} fill="currentColor" />
           </button>
         </div>
         {/* Progress bar at the very top of the mini player */}
         <div 
-          className="absolute top-0 left-0 right-0 h-2 bg-transparent group/progress z-20" 
+          className="absolute top-0 left-0 right-0 h-1 bg-transparent group/progress z-20" 
           onClick={e => e.stopPropagation()}
           ref={miniTrackRef}
         >
           <div className="absolute inset-0 bg-white/5">
             {track && (track.startTime || track.endTime) && (
               <div 
-                className="absolute h-full bg-pink-500/10"
+                className="absolute h-full bg-emerald-500/10"
                 style={{
                   left: `${((track.startTime || 0) / (duration || 1)) * 100}%`,
                   width: `${(((track.endTime || duration) - (track.startTime || 0)) / (duration || 1)) * 100}%`
@@ -1743,7 +1770,7 @@ export default function App() {
               />
             )}
             <div 
-              className={`h-full bg-pink-500 relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
+              className={`h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] relative ${isSeeking ? '' : 'transition-all duration-300'}`} 
               style={{ width: `${(progress / (duration || 1)) * 100}%` }}
             >
               {/* Draggable Thumb for Mini Player */}
@@ -1754,7 +1781,7 @@ export default function App() {
                 onPointerUp={handleSliderPointerUp}
                 onPointerCancel={handleSliderPointerUp}
               >
-                <div className={`w-4 h-4 bg-white rounded-full shadow-xl border-2 border-pink-500 transition-all duration-200 ${isSeeking ? 'scale-110 opacity-100' : 'scale-50 opacity-0 group-hover/progress:opacity-100 group-hover/progress:scale-100'}`} />
+                <div className={`w-4 h-4 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] border-2 border-emerald-500 transition-all duration-200 ${isSeeking ? 'scale-110 opacity-100' : 'scale-50 opacity-0 group-hover/progress:opacity-100 group-hover/progress:scale-100'}`} />
                 <div className="absolute inset-[-10px] rounded-full" />
               </div>
             </div>
@@ -1766,17 +1793,19 @@ export default function App() {
 
   if (!isDataLoaded) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        <div className="animate-pulse flex flex-col items-center">
-          <Music size={48} className="text-pink-500 mb-4 opacity-50" />
-          <p className="text-white/50 text-sm tracking-widest uppercase">Loading Library...</p>
+      <div className="min-h-screen bg-black flex items-center justify-center text-white art-gradient">
+        <div className="flex flex-col items-center">
+          <div className="w-24 h-24 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 mb-8 animate-pulse shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+            <Music size={48} className="text-emerald-500 opacity-50" />
+          </div>
+          <p className="text-white/30 text-[10px] font-bold tracking-[0.4em] uppercase animate-pulse">Loading Library</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-pink-500/30 overflow-hidden">
+    <div className="min-h-screen bg-black text-white font-sans selection:bg-emerald-500/30 overflow-hidden">
       {/* Hidden Audio Elements */}
       <audio ref={audio1Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(1)} onEnded={() => onEnded(1)} onLoadedMetadata={(e) => onLoadedMetadata(1, e.currentTarget)} onLoadedData={(e) => onLoadedData(1, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(1, e.currentTarget)} onPlaying={(e) => onPlaying(1, e.currentTarget)} onCanPlay={(e) => onCanPlay(1, e.currentTarget)} onPlay={(e) => onPlay(1, e.currentTarget)} onSeeked={(e) => onSeeked(e.currentTarget)} />
       <audio ref={audio2Ref} preload="auto" onTimeUpdate={() => onTimeUpdate(2)} onEnded={() => onEnded(2)} onLoadedMetadata={(e) => onLoadedMetadata(2, e.currentTarget)} onLoadedData={(e) => onLoadedData(2, e.currentTarget)} onCanPlayThrough={(e) => onCanPlayThrough(2, e.currentTarget)} onPlaying={(e) => onPlaying(2, e.currentTarget)} onCanPlay={(e) => onCanPlay(2, e.currentTarget)} onPlay={(e) => onPlay(2, e.currentTarget)} onSeeked={(e) => onSeeked(e.currentTarget)} />
@@ -1790,12 +1819,14 @@ export default function App() {
       />
 
       {/* Background */}
-      <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-black blur-3xl" />
+      <div className="fixed inset-0 z-0 opacity-60 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 via-black to-black" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full" />
       </div>
 
       {/* Main Container */}
-      <div className="relative z-10 flex flex-col h-[100dvh] w-full bg-black/40 backdrop-blur-2xl shadow-2xl overflow-hidden pt-8">
+      <div className="relative z-10 flex flex-col h-[100dvh] w-full bg-transparent overflow-hidden pt-8">
           <div className="flex-1 flex flex-col min-h-0">
             {view === 'player' && renderPlayer()}
             {view === 'library' && renderLibrary()}
@@ -1806,9 +1837,9 @@ export default function App() {
 
           {/* Global Navigation (Bottom) */}
           {!isSelectingForPlaylist && (
-            <nav className="shrink-0 z-30 pb-[calc(env(safe-area-inset-bottom)+2rem)] bg-black/60 backdrop-blur-2xl border-t border-white/5">
+            <nav className="shrink-0 z-30 pb-[calc(env(safe-area-inset-bottom)+2rem)] glass-dark border-t border-white/5">
               <div className="relative flex items-center justify-center px-6 h-16">
-                <div className="flex gap-8 h-full">
+                <div className="flex gap-10 h-full">
                   {[
                     { id: 'tracks', label: 'Tracks' },
                     { id: 'playlists', label: 'Playlist' },
@@ -1821,21 +1852,19 @@ export default function App() {
                         onClick={() => { setLibraryTab(tab.id as any); switchView('library'); setIsSelectingForPlaylist(false); }}
                         className="relative h-full flex items-center group"
                       >
-                        <span className={`text-xs font-bold tracking-[0.15em] uppercase transition-all duration-300 ${isActive ? 'text-pink-500' : 'text-white/40 group-hover:text-white/60'}`}>
+                        <span className={`text-[10px] font-bold tracking-[0.25em] uppercase transition-all duration-500 ${isActive ? 'text-emerald-400' : 'text-white/20 group-hover:text-white/50'}`}>
                           {tab.label}
                         </span>
                         {isActive && (
                           <motion.div 
                             layoutId="nav-indicator"
-                            className="absolute top-0 left-0 right-0 h-0.5 bg-pink-500 rounded-full"
+                            className="absolute top-0 left-0 right-0 h-0.5 bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
                             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                           />
                         )}
                       </button>
                     );
                   })}
-                </div>
-                <div className="absolute right-6 flex items-center gap-4">
                 </div>
               </div>
             </nav>
@@ -1862,9 +1891,9 @@ export default function App() {
                       setIsCreatingPlaylist(true);
                     }
                   }}
-                  className="w-14 h-14 rounded-full bg-pink-500 flex items-center justify-center text-white shadow-2xl shadow-pink-500/40 hover:scale-110 active:scale-95 transition-transform"
+                  className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center text-black shadow-[0_0_30px_rgba(16,185,129,0.4)] hover:scale-110 active:scale-95 transition-all duration-300 border-4 border-black"
                 >
-                  <Plus size={28} />
+                  <Plus size={32} strokeWidth={3} />
                 </button>
               </motion.div>
             )}
@@ -1874,26 +1903,26 @@ export default function App() {
       {/* Create Playlist Modal */}
       {isCreatingPlaylist && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
           onClick={() => setIsCreatingPlaylist(false)}
         >
           <form 
             onSubmit={handleCreatePlaylist} 
-            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            className="glass-dark border border-white/10 p-8 rounded-[2rem] w-full max-w-xs shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300"
             onClick={e => e.stopPropagation()}
           >
-            <h3 className="text-base font-bold mb-4">New Playlist</h3>
+            <h3 className="text-lg font-display font-bold mb-6 text-white tracking-tight">New Playlist</h3>
             <input
               type="text"
               autoFocus
               value={newPlaylistName}
               onChange={e => setNewPlaylistName(e.target.value)}
               placeholder="Playlist name"
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-base text-white outline-none focus:border-pink-500 transition-colors mb-6"
+              className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-base text-white outline-none focus:border-emerald-500/50 transition-all mb-8 placeholder:text-white/20"
             />
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setIsCreatingPlaylist(false)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
-              <button type="submit" disabled={!newPlaylistName.trim()} className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">Create</button>
+            <div className="flex justify-end gap-4">
+              <button type="button" onClick={() => setIsCreatingPlaylist(false)} className="px-4 py-2 text-white/30 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">Cancel</button>
+              <button type="submit" disabled={!newPlaylistName.trim()} className="px-6 py-3 bg-emerald-500 text-black rounded-xl text-[10px] font-bold uppercase tracking-widest disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 transition-all">Create</button>
             </div>
           </form>
         </div>
@@ -1902,23 +1931,23 @@ export default function App() {
       {/* Manage Tags Modal */}
       {taggingTrackId && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
           onClick={() => setTaggingTrackId(null)}
         >
           <div 
-            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            className="glass-dark border border-white/10 p-8 rounded-[2rem] w-full max-w-xs shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-bold">Manage Tags</h3>
-              <button onClick={() => setTaggingTrackId(null)} className="p-1 text-white/30 hover:text-white transition-colors">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-display font-bold text-white tracking-tight">Manage Tags</h3>
+              <button onClick={() => setTaggingTrackId(null)} className="p-2 text-white/20 hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="flex flex-wrap gap-2 mb-6">
+            <div className="flex flex-wrap gap-2 mb-8">
               {tracks.find(t => t.id === taggingTrackId)?.tags?.map(tag => (
-                <span key={tag} className="flex items-center gap-1.5 px-2.5 py-1 bg-pink-500/20 text-pink-500 rounded-full text-[10px] font-bold border border-pink-500/30">
+                <span key={tag} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-bold border border-emerald-500/20">
                   {tag}
                   <button onClick={() => removeTag(taggingTrackId, tag)} className="hover:text-white transition-colors">
                     <X size={12} />
@@ -1926,7 +1955,7 @@ export default function App() {
                 </span>
               ))}
               {(!tracks.find(t => t.id === taggingTrackId)?.tags || tracks.find(t => t.id === taggingTrackId)?.tags?.length === 0) && (
-                <p className="text-[10px] text-white/30 italic">No tags added yet</p>
+                <p className="text-[10px] text-white/20 italic tracking-widest uppercase">No tags added yet</p>
               )}
             </div>
 
@@ -1937,15 +1966,15 @@ export default function App() {
                 value={newTag}
                 onChange={e => setNewTag(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addTag(taggingTrackId, newTag)}
-                placeholder="Add new tag..."
-                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-base text-white outline-none focus:border-pink-500 transition-colors"
+                placeholder="Add tag..."
+                className="flex-1 bg-black/40 border border-white/5 rounded-2xl px-4 py-3 text-base text-white outline-none focus:border-emerald-500/50 transition-all placeholder:text-white/20"
               />
               <button 
                 onClick={() => addTag(taggingTrackId, newTag)}
                 disabled={!newTag.trim()}
-                className="w-12 flex items-center justify-center bg-pink-500 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                className="w-12 h-12 flex items-center justify-center bg-emerald-500 text-black rounded-2xl disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-90 transition-all"
               >
-                <Plus size={20} />
+                <Plus size={24} strokeWidth={3} />
               </button>
             </div>
           </div>
@@ -1954,17 +1983,17 @@ export default function App() {
       {/* Edit Song Name Modal */}
       {editingTrackId && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
           onClick={() => setEditingTrackId(null)}
         >
           <form 
             onSubmit={handleEditTrackName} 
-            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            className="glass-dark border border-white/10 p-8 rounded-[2rem] w-full max-w-xs shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-bold">Edit Song Name</h3>
-              <button type="button" onClick={() => setEditingTrackId(null)} className="p-1 text-white/30 hover:text-white transition-colors">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-display font-bold text-white tracking-tight">Edit Name</h3>
+              <button type="button" onClick={() => setEditingTrackId(null)} className="p-2 text-white/20 hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -1974,11 +2003,11 @@ export default function App() {
               value={editingTrackName}
               onChange={e => setEditingTrackName(e.target.value)}
               placeholder="Song name"
-              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-base text-white outline-none focus:border-pink-500 transition-colors mb-6"
+              className="w-full bg-black/40 border border-white/5 rounded-2xl px-5 py-4 text-base text-white outline-none focus:border-emerald-500/50 transition-all mb-8 placeholder:text-white/20"
             />
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setEditingTrackId(null)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
-              <button type="submit" disabled={!editingTrackName.trim()} className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed">Save</button>
+            <div className="flex justify-end gap-4">
+              <button type="button" onClick={() => setEditingTrackId(null)} className="px-4 py-2 text-white/30 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">Cancel</button>
+              <button type="submit" disabled={!editingTrackName.trim()} className="px-6 py-3 bg-emerald-500 text-black rounded-xl text-[10px] font-bold uppercase tracking-widest disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 transition-all">Save</button>
             </div>
           </form>
         </div>
@@ -1987,48 +2016,54 @@ export default function App() {
       {/* Set Play Range Modal */}
       {trimmingTrackId && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
           onClick={() => setTrimmingTrackId(null)}
         >
           <form 
             onSubmit={handleTrimTrack} 
-            className="bg-zinc-900 border border-white/10 p-6 rounded-2xl w-full max-w-xs shadow-2xl"
+            className="glass-dark border border-white/10 p-8 rounded-[2rem] w-full max-w-xs shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-in zoom-in-95 duration-300"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-base font-bold">Set Play Range</h3>
-              <button type="button" onClick={() => setTrimmingTrackId(null)} className="p-1 text-white/30 hover:text-white transition-colors">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-display font-bold text-white tracking-tight">Set Play Range</h3>
+              <button type="button" onClick={() => setTrimmingTrackId(null)} className="p-2 text-white/20 hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <p className="text-[10px] text-white/50 mb-6 leading-relaxed">
-              Set the start and end points in seconds. Leave as 0 to play from the beginning or until the end.
+            <div className="text-[10px] text-white/30 mb-8 leading-relaxed font-bold uppercase tracking-widest">
+              Set start and end points in seconds.
               {tracks.find(t => t.id === trimmingTrackId)?.duration ? (
-                <div className="space-y-1 mt-1">
-                  <span className="block text-pink-500 font-bold">
-                    Track Duration: {formatTime(tracks.find(t => t.id === trimmingTrackId)!.duration!)} ({tracks.find(t => t.id === trimmingTrackId)!.duration!.toFixed(2)}s)
-                  </span>
-                  {isPlaying && getActiveQueue()[currentIndex]?.id === trimmingTrackId && (
-                    <span className="block text-white/70 font-mono text-[9px]">
-                      Current Progress: {progress.toFixed(2)}s
+                <div className="space-y-2 mt-4 p-4 bg-black/40 rounded-2xl border border-white/5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/40">Duration</span>
+                    <span className="text-emerald-400 font-art">
+                      {formatTime(tracks.find(t => t.id === trimmingTrackId)!.duration!)}
                     </span>
+                  </div>
+                  {isPlaying && getActiveQueue()[currentIndex]?.id === trimmingTrackId && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-white/40">Current</span>
+                      <span className="text-white/60 font-art">
+                        {progress.toFixed(2)}s
+                      </span>
+                    </div>
                   )}
                 </div>
               ) : (
-                <span className="block mt-1 text-white/30 italic">
+                <span className="block mt-4 text-white/20 italic">
                   Loading track duration...
                 </span>
               )}
-            </p>
-            <div className="space-y-4 mb-8">
-              <div className="space-y-2">
+            </div>
+            <div className="space-y-6 mb-10">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Start Point (s)</label>
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-bold">Start (s)</label>
                   {isPlaying && getActiveQueue()[currentIndex]?.id === trimmingTrackId && (
                     <button 
                       type="button"
                       onClick={() => setTrimStart(progress.toFixed(2))}
-                      className="text-[9px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-tighter"
+                      className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-widest"
                     >
                       Use Current
                     </button>
@@ -2044,20 +2079,20 @@ export default function App() {
                       setTrimStart(val);
                     }
                   }}
-                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-base text-white outline-none transition-colors ${tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
+                  className={`w-full bg-black/40 border rounded-2xl px-5 py-4 text-base text-white outline-none transition-all ${tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! ? 'border-rose-500' : 'border-white/5 focus:border-emerald-500/50'}`}
                 />
                 {tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimStart) >= tracks.find(t => t.id === trimmingTrackId)!.duration! && (
-                  <p className="text-[9px] text-red-500 font-bold mt-1">Start point must be less than song duration</p>
+                  <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase tracking-widest">Exceeds duration</p>
                 )}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-bold">End Point (s)</label>
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-bold">End (s)</label>
                   {isPlaying && getActiveQueue()[currentIndex]?.id === trimmingTrackId && (
                     <button 
                       type="button"
                       onClick={() => setTrimEnd(progress.toFixed(2))}
-                      className="text-[9px] text-pink-500 hover:text-pink-400 font-bold uppercase tracking-tighter"
+                      className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-widest"
                     >
                       Use Current
                     </button>
@@ -2073,18 +2108,15 @@ export default function App() {
                       setTrimEnd(val);
                     }
                   }}
-                  className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-base text-white outline-none transition-colors ${(parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart)) || (tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration!) ? 'border-red-500' : 'border-white/10 focus:border-pink-500'}`}
+                  className={`w-full bg-black/40 border rounded-2xl px-5 py-4 text-base text-white outline-none transition-all ${(parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart)) || (tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration!) ? 'border-rose-500' : 'border-white/5 focus:border-emerald-500/50'}`}
                 />
                 {parseFloat(trimEnd) > 0 && parseFloat(trimEnd) <= parseFloat(trimStart) && (
-                  <p className="text-[9px] text-red-500 font-bold mt-1">End point must be greater than start point</p>
-                )}
-                {tracks.find(t => t.id === trimmingTrackId)?.duration && parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration! && (
-                  <p className="text-[9px] text-red-500 font-bold mt-1">End point cannot exceed song duration</p>
+                  <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase tracking-widest">Invalid range</p>
                 )}
               </div>
             </div>
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setTrimmingTrackId(null)} className="px-4 py-2 text-white/50 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">Cancel</button>
+            <div className="flex justify-end gap-4">
+              <button type="button" onClick={() => setTrimmingTrackId(null)} className="px-4 py-2 text-white/30 hover:text-white transition-colors text-[10px] font-bold uppercase tracking-widest">Cancel</button>
               <button 
                 type="submit" 
                 disabled={
@@ -2094,7 +2126,7 @@ export default function App() {
                     (parseFloat(trimEnd) > tracks.find(t => t.id === trimmingTrackId)!.duration!)
                   ))
                 }
-                className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 bg-emerald-500 text-black rounded-xl text-[10px] font-bold uppercase tracking-widest disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95 transition-all"
               >
                 Save Range
               </button>
@@ -2116,16 +2148,16 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
+              className="w-full max-w-sm glass-dark border border-white/10 rounded-[2.5rem] p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
             >
-              <div className="w-16 h-16 bg-pink-500/20 rounded-full flex items-center justify-center mb-6 mx-auto">
-                <Music size={32} className="text-pink-500" />
+              <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-8 mx-auto border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                <Music size={32} className="text-emerald-500" />
               </div>
-              <h2 className="text-xl font-bold mb-2 text-center">Import Error</h2>
-              <p className="text-sm text-white/50 text-center mb-8">{uploadError}</p>
+              <h2 className="text-2xl font-display font-bold mb-3 text-center tracking-tight">Import Error</h2>
+              <p className="text-sm text-white/40 text-center mb-10 leading-relaxed">{uploadError}</p>
               <button
                 onClick={() => setUploadError(null)}
-                className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
+                className="w-full py-5 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all active:scale-95"
               >
                 Dismiss
               </button>
@@ -2141,14 +2173,14 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex flex-col items-center justify-center p-6"
+            className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[120] flex flex-col items-center justify-center p-6"
           >
-            <div className="flex gap-1 items-end h-8 mb-4">
-              <div className="w-1.5 bg-pink-500 animate-eq h-full" />
-              <div className="w-1.5 bg-pink-500 animate-eq-delay-1 h-2/3" />
-              <div className="w-1.5 bg-pink-500 animate-eq-delay-2 h-4/5" />
+            <div className="flex gap-2 items-end h-12 mb-8">
+              <div className="w-2 bg-emerald-500 animate-eq h-full shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+              <div className="w-2 bg-emerald-500 animate-eq-delay-1 h-2/3 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
+              <div className="w-2 bg-emerald-500 animate-eq-delay-2 h-4/5 shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
             </div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Importing Tracks...</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-emerald-500/70 animate-pulse">Importing Tracks</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -2166,23 +2198,23 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
+              className="w-full max-w-sm glass-dark border border-rose-500/20 rounded-[2.5rem] p-10 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
             >
-              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6 mx-auto">
-                <Trash2 size={32} className="text-red-500" />
+              <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mb-8 mx-auto border border-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
+                <Trash2 size={32} className="text-rose-500" />
               </div>
-              <h2 className="text-xl font-bold mb-2 text-center">Clear All Data?</h2>
-              <p className="text-sm text-white/50 text-center mb-8">This will permanently delete all tracks, playlists, and settings. This action cannot be undone.</p>
-              <div className="flex flex-col gap-3">
+              <h2 className="text-2xl font-display font-bold mb-3 text-center tracking-tight">Clear All Data?</h2>
+              <p className="text-sm text-white/40 text-center mb-10 leading-relaxed">This will permanently delete all tracks, playlists, and settings. This action cannot be undone.</p>
+              <div className="flex flex-col gap-4">
                 <button
                   onClick={clearAllData}
-                  className="w-full py-4 bg-red-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-red-500/20"
+                  className="w-full py-5 bg-rose-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(244,63,94,0.3)] active:scale-95 transition-all"
                 >
                   Yes, Clear Everything
                 </button>
                 <button
                   onClick={() => setShowClearConfirm(false)}
-                  className="w-full py-4 text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors"
+                  className="w-full py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
