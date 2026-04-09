@@ -102,7 +102,9 @@ const ReorderableTrackItem = ({
               {track.isCorrupted && <span className="ml-2 text-[10px] text-rose-500 font-bold uppercase tracking-widest">! Missing Data</span>}
             </p>
             <div className="flex items-center gap-2 overflow-hidden">
-              <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium shrink-0">{track.artist}</p>
+              {track.artist && track.artist !== 'Unknown Artist' && (
+                <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium shrink-0">{track.artist}</p>
+              )}
               {track.tags && track.tags.length > 0 && (
                 <div className="flex gap-1 overflow-hidden">
                   {track.tags.map((tag: string) => (
@@ -240,7 +242,9 @@ const ReorderablePlaylistTrackItem = ({
             {track.name}
           </p>
           <div className="flex items-center gap-2 overflow-hidden">
-            <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium shrink-0">{track.artist}</p>
+            {track.artist && track.artist !== 'Unknown Artist' && (
+              <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium shrink-0">{track.artist}</p>
+            )}
             {track.tags && track.tags.length > 0 && (
               <div className="flex gap-1 overflow-hidden">
                 {track.tags.map((tag: string) => (
@@ -1286,9 +1290,11 @@ export default function App() {
             <h2 className="text-2xl font-display font-bold tracking-tight truncate px-12 text-white">
               {currentTrack ? currentTrack.name : 'Not Playing'}
             </h2>
-            <p className="text-xs font-medium uppercase tracking-[0.3em] text-emerald-500/60 truncate px-12 mt-2">
-              {currentTrack ? currentTrack.artist : '--'}
-            </p>
+            {currentTrack && currentTrack.artist && currentTrack.artist !== 'Unknown Artist' && (
+              <p className="text-xs font-medium uppercase tracking-[0.3em] text-emerald-500/60 truncate px-12 mt-2">
+                {currentTrack.artist}
+              </p>
+            )}
             {currentTrack && (
               <button 
                 onClick={() => setShowPlayerMenu(!showPlayerMenu)}
@@ -1425,7 +1431,9 @@ export default function App() {
                 <p className={`truncate text-sm font-display font-semibold tracking-tight ${index === currentIndex ? 'text-emerald-400' : 'text-white'}`}>
                   {track.name}
                 </p>
-                <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium mt-0.5">{track.artist}</p>
+                {track.artist && track.artist !== 'Unknown Artist' && (
+                  <p className="truncate text-[10px] uppercase tracking-widest text-white/40 font-medium mt-0.5">{track.artist}</p>
+                )}
               </div>
             </button>
           ))}
@@ -1737,7 +1745,9 @@ export default function App() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="truncate text-sm font-display font-bold tracking-tight text-white">{track.name}</p>
-          <p className="truncate text-[10px] font-bold uppercase tracking-widest text-white/30 mt-0.5">{track.artist || 'Unknown Artist'}</p>
+          {track.artist && track.artist !== 'Unknown Artist' && (
+            <p className="truncate text-[10px] font-bold uppercase tracking-widest text-white/30 mt-0.5">{track.artist}</p>
+          )}
         </div>
         <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
           <button 
