@@ -18,6 +18,7 @@ interface Track {
   startTime?: number;
   endTime?: number;
   duration?: number;
+  isCorrupted?: boolean;
 }
 
 interface Playlist {
@@ -104,6 +105,9 @@ export default function App() {
   const [isSeeking, setIsSeeking] = useState(false);
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   
   const playerTrackRef = useRef<HTMLDivElement>(null);
   const miniTrackRef = useRef<HTMLDivElement>(null);
@@ -137,10 +141,26 @@ export default function App() {
         const storedTracks = await get('tracks');
         let loadedTracks: Track[] = [];
         if (storedTracks && Array.isArray(storedTracks)) {
-          loadedTracks = storedTracks.map((t: any) => ({
-            ...t,
-            url: URL.createObjectURL(t.file)
-          }));
+          loadedTracks = storedTracks.map((t: any) => {
+            try {
+              const file = t.file;
+              // On some iOS versions, File objects from IDB can lose their data reference.
+              // We check size to detect if the data was purged by the system.
+              if (!file || file.size === 0) {
+                return { ...t, url: '', isCorrupted: true };
+              }
+
+              const blob = new Blob([file], { type: file.type || 'audio/flac' });
+              return {
+                ...t,
+                url: URL.createObjectURL(blob),
+                isCorrupted: false
+              };
+            } catch (err) {
+              console.error(`Failed to recreate URL for track ${t.id}`, err);
+              return { ...t, url: '', isCorrupted: true };
+            }
+          });
           setTracks(loadedTracks);
         }
 
@@ -156,9 +176,10 @@ export default function App() {
           setTimeout(() => {
             const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
             const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
-            if (currentAudio) {
+            if (currentAudio && loadedTracks[validIndex].url) {
               currentAudio.src = loadedTracks[validIndex].url;
               if (currentGain) currentGain.gain.value = 1;
+              currentAudio.load(); // Explicitly load to trigger metadata fetching
             }
           }, 0);
         }
@@ -261,7 +282,7 @@ export default function App() {
     initAudioContext();
     const queue = playlistId ? (playlists.find(p => p.id === playlistId)?.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[]) : tracks;
     const nextTrack = queue[index];
-    if (!nextTrack) return;
+    if (!nextTrack || nextTrack.isCorrupted) return;
 
     if (playlistId !== activePlaylistId) {
       setActivePlaylistId(playlistId);
@@ -524,45 +545,77 @@ export default function App() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
-    const flacFiles = files.filter(f => f.name.toLowerCase().endsWith('.flac') || f.type === 'audio/flac');
+    const flacFiles = files.filter(f => f.name.toLowerCase().endsWith('.flac') || f.type === 'audio/flac' || f.type === 'audio/x-flac');
 
     if (flacFiles.length === 0) {
-      alert("Please select .flac files.");
+      if (files.length > 0) {
+        setUploadError("Please select .flac files. Other formats are not supported yet.");
+      }
       return;
     }
 
-    const newTracks = flacFiles.map(file => ({
-      id: Math.random().toString(36).substring(7),
-      file,
-      url: URL.createObjectURL(file),
-      name: file.name.replace(/\.flac$/i, ''),
-      artist: 'Unknown Artist'
-    }));
+    setIsUploading(true);
+    setUploadError(null);
 
-    setTracks(prev => {
-      const updated = [...prev, ...newTracks];
-      if (prev.length === 0 && updated.length > 0) {
-        setTimeout(() => {
-           setCurrentIndex(0);
-           const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-           const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
-           if (currentAudio) {
-             currentAudio.src = updated[0].url;
-             if (currentGain) currentGain.gain.value = 1;
-           }
-        }, 0);
-      }
-      return updated;
-    });
+    try {
+      const newTracks = flacFiles.map(file => ({
+        id: Math.random().toString(36).substring(7),
+        file,
+        url: URL.createObjectURL(file),
+        name: file.name.replace(/\.flac$/i, ''),
+        artist: 'Unknown Artist',
+        isCorrupted: file.size === 0
+      }));
+
+      setTracks(prev => {
+        const updated = [...prev, ...newTracks];
+        if (prev.length === 0 && updated.length > 0) {
+          setTimeout(() => {
+             setCurrentIndex(0);
+             const currentAudio = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+             const currentGain = activeAudioRef.current === 1 ? gainNode1Ref.current : gainNode2Ref.current;
+             if (currentAudio) {
+               currentAudio.src = updated[0].url;
+               if (currentGain) currentGain.gain.value = 1;
+               currentAudio.load();
+             }
+          }, 0);
+        }
+        return updated;
+      });
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadError("Failed to process some files. Please try again.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSelectTrack = (index: number, playlistId: string | null = null) => {
+    const queue = playlistId 
+      ? playlists.find(p => p.id === playlistId)?.trackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as Track[] 
+      : tracks;
+    const track = queue[index];
+    
+    if (track?.isCorrupted) {
+      // We'll use a simple state to show an error if needed, but for now we just prevent play
+      return;
+    }
+
     setHasStarted(true);
     if (index === currentIndex && playlistId === activePlaylistId) {
       if (!isPlaying) togglePlay();
       return;
     }
     playTrack(index, crossfadeEnabled, true, playlistId);
+  };
+
+  const clearAllData = async () => {
+    await set('tracks', []);
+    await set('playlists', []);
+    await set('settings', null);
+    window.location.reload();
   };
 
   const handleCreatePlaylist = (e: React.FormEvent) => {
@@ -982,6 +1035,7 @@ export default function App() {
                     <div className="flex-1 min-w-0 text-left">
                       <p className={`truncate text-sm font-medium ${!isSelectingForPlaylist && index === currentIndex && activePlaylistId === null ? 'text-pink-500' : 'text-white'}`}>
                         {track.name}
+                        {track.isCorrupted && <span className="ml-2 text-[10px] text-red-500 font-bold uppercase tracking-tighter">! Missing Data</span>}
                       </p>
                       <div className="flex items-center gap-2 overflow-hidden">
                         <p className="truncate text-xs text-white/50 shrink-0">{track.artist}</p>
@@ -1201,6 +1255,20 @@ export default function App() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Danger Zone */}
+            <div className="flex flex-col gap-6 p-4 bg-red-500/5 rounded-2xl border border-red-500/20 mt-4">
+              <div className="flex items-center gap-3">
+                <Trash2 size={20} className="text-red-500" />
+                <span className="text-xs font-medium text-red-500">Danger Zone</span>
+              </div>
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors border border-red-500/20"
+              >
+                Clear All Library Data
+              </button>
             </div>
           </div>
         )}
@@ -1425,7 +1493,7 @@ export default function App() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileUpload}
-        accept=".flac,audio/flac"
+        accept=".flac,audio/flac,audio/x-flac,audio/*"
         multiple
         className="hidden"
       />
@@ -1736,6 +1804,95 @@ export default function App() {
           </form>
         </div>
       )}
+
+      {/* Upload Error Modal */}
+      <AnimatePresence>
+        {uploadError && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[110] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-pink-500/20 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <Music size={32} className="text-pink-500" />
+              </div>
+              <h2 className="text-xl font-bold mb-2 text-center">Import Error</h2>
+              <p className="text-sm text-white/50 text-center mb-8">{uploadError}</p>
+              <button
+                onClick={() => setUploadError(null)}
+                className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold uppercase tracking-widest transition-colors"
+              >
+                Dismiss
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Uploading Overlay */}
+      <AnimatePresence>
+        {isUploading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[120] flex flex-col items-center justify-center p-6"
+          >
+            <div className="flex gap-1 items-end h-8 mb-4">
+              <div className="w-1.5 bg-pink-500 animate-eq h-full" />
+              <div className="w-1.5 bg-pink-500 animate-eq-delay-1 h-2/3" />
+              <div className="w-1.5 bg-pink-500 animate-eq-delay-2 h-4/5" />
+            </div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/70">Importing Tracks...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Clear Confirmation Modal */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[100] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-3xl p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <Trash2 size={32} className="text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold mb-2 text-center">Clear All Data?</h2>
+              <p className="text-sm text-white/50 text-center mb-8">This will permanently delete all tracks, playlists, and settings. This action cannot be undone.</p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={clearAllData}
+                  className="w-full py-4 bg-red-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-red-500/20"
+                >
+                  Yes, Clear Everything
+                </button>
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="w-full py-4 text-xs font-bold uppercase tracking-widest text-white/40 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
