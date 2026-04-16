@@ -442,7 +442,7 @@ export default function App() {
                 continue;
               }
 
-              const blob = new Blob([fileData], { type: t.type || 'audio/flac' });
+              const blob = new Blob([fileData], { type: t.type || (t.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac') });
               loadedTracks.push({
                 ...t,
                 data: undefined, // CRITICAL: Discard binary data from React state
@@ -954,11 +954,18 @@ export default function App() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
-    const flacFiles = files.filter(f => f.name.toLowerCase().endsWith('.flac') || f.type === 'audio/flac' || f.type === 'audio/x-flac');
+    const supportedFiles = files.filter(f => 
+      f.name.toLowerCase().endsWith('.flac') || 
+      f.name.toLowerCase().endsWith('.mp3') ||
+      f.type === 'audio/flac' || 
+      f.type === 'audio/x-flac' ||
+      f.type === 'audio/mpeg' ||
+      f.type === 'audio/mp3'
+    );
 
-    if (flacFiles.length === 0) {
+    if (supportedFiles.length === 0) {
       if (files.length > 0) {
-        setUploadError("Please select .flac files. Other formats are not supported yet.");
+        setUploadError("Please select .flac or .mp3 files. Other formats are not supported yet.");
       }
       return;
     }
@@ -969,11 +976,11 @@ export default function App() {
     try {
       const newTracks: Track[] = [];
       
-      for (const file of flacFiles) {
+      for (const file of supportedFiles) {
         if (file.size === 0) continue;
         
         const buffer = await file.arrayBuffer();
-        const blob = new Blob([buffer], { type: file.type || 'audio/flac' });
+        const blob = new Blob([buffer], { type: file.type || (file.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac') });
         const id = Math.random().toString(36).substring(7);
         
         // Save binary data separately in IDB
@@ -982,9 +989,9 @@ export default function App() {
         newTracks.push({
           id,
           url: URL.createObjectURL(blob),
-          name: file.name.replace(/\.flac$/i, ''),
+          name: file.name.replace(/\.(flac|mp3)$/i, ''),
           artist: 'Unknown Artist',
-          type: file.type || 'audio/flac',
+          type: file.type || (file.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac'),
           isCorrupted: false
         });
       }
@@ -1045,7 +1052,7 @@ export default function App() {
         const fileData = await get(`track_data_${t.id}`);
         if (fileData) {
           if (t.url) URL.revokeObjectURL(t.url);
-          const blob = new Blob([fileData], { type: t.type || 'audio/flac' });
+          const blob = new Blob([fileData], { type: t.type || (t.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac') });
           repairedTracks.push({ ...t, url: URL.createObjectURL(blob), isCorrupted: false });
         } else {
           repairedTracks.push({ ...t, isCorrupted: true });
@@ -1823,7 +1830,7 @@ export default function App() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileUpload}
-        accept=".flac,audio/flac,audio/x-flac,audio/*"
+        accept=".flac,.mp3,audio/flac,audio/x-flac,audio/mpeg,audio/mp3,audio/*"
         multiple
         className="hidden"
       />
