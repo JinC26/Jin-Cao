@@ -1,5 +1,5 @@
 {
-  "name": "iOS Style FLAC Player",
-  "description": "A web-based music player designed with an iOS aesthetic, supporting .flac playback and crossfading between tracks.",
+  "name": "iOS Style Music Player",
+  "description": "A web-based music player designed with an iOS aesthetic, supporting .flac and .mp3 playback with crossfading between tracks.",
   "requestFramePermissions": []
 }
